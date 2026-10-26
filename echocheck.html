@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#161d25">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="EchoCheck: audit a classroom's acoustics with your phone. Background noise, echo time and speech clarity checked against ANSI S12.60, with a fix plan.">
+<title>EchoCheck</title>
+<script>try{document.documentElement.dataset.palette=(localStorage.getItem("fieldkit.theme")==="day")?"day":"night";}catch(e){document.documentElement.dataset.palette="night";}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --ground:#f3f4f1; --card:#ffffff; --shell:#e4f01e; --on-shell:#14181f; --shell-line:#14181f;
+  --hv:#e4f01e; --on-hv:#14181f; --ink:#14181f; --muted:#4b535f; --grid:#e3e5e1; --line:#14181f; --fill:#14181f; --on-fill:#e4f01e;
+  --silver:#c9cdd2; --silver2:#dadde1; --silver3:#b3b8be; --band-ink:#14181f; --ghost:rgba(20,24,31,.13); --track:rgba(20,24,31,.12); --sheen:rgba(255,255,255,.8);
+  --alert:#ff5a1f; --on-alert:#14181f; --pass:#16833a; --on-pass:#ffffff; --zone:rgba(228,240,30,.5); --over:rgba(255,90,31,.14);
+  --dock:#14181f; --on-dock:#ffffff; --dock-muted:#8d949e; --dock-off:#4b535f; --go-off:#59605e; --go-off-ink:#c9cdd2; --wait1:#2b3038; --wait2:#3a414b;
+  --s0:#d62839; --s1:#f06a1d; --s2:#e3b505; --s3:#7cc243; --s4:#1f9d55;
+  --cond:"Barlow Condensed","Arial Narrow",sans-serif;
+  --sans:"Barlow",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+:root[data-palette="night"]{
+  color-scheme: dark;
+  --ground:#0e1318; --card:#161d25; --shell:#161d25; --on-shell:#e4f01e; --shell-line:#e4f01e;
+  --hv:#e4f01e; --on-hv:#0e1318; --ink:#e8ecf0; --muted:#9aa7b4; --grid:#26313d; --line:#5f6d7c; --fill:#e4f01e; --on-fill:#0e1318;
+  --band-ink:#0e1318; --ghost:rgba(14,19,24,.16); --track:rgba(14,19,24,.15); --sheen:rgba(255,255,255,.85);
+  --alert:#ff6a2b; --on-alert:#0e1318; --pass:#33b35f; --on-pass:#0e1318; --zone:rgba(228,240,30,.2); --over:rgba(255,106,43,.16);
+  --dock:#080b0f; --on-dock:#e8ecf0; --dock-muted:#7d8995; --dock-off:#3b4756; --go-off:#2a333d; --go-off-ink:#7d8995; --wait1:#1e252e; --wait2:#2b343f;
+  --s0:#ff4757; --s1:#ff7a33; --s2:#f0c419; --s3:#8fd14f; --s4:#33b35f;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--ground);color:var(--ink);font:16px/1.45 var(--sans);-webkit-tap-highlight-color:transparent}
+::selection{background:var(--hv);color:var(--on-hv)}
+:focus-visible{outline:3px solid var(--hv);outline-offset:2px}
+button{font-family:inherit;color:inherit;cursor:pointer;-webkit-appearance:none;appearance:none;border-radius:0}
+input{font-family:inherit;color:var(--ink)}
+.hide{display:none!important}
+.app{max-width:640px;margin:0 auto;min-height:100vh;padding-bottom:calc(100px + env(safe-area-inset-bottom))}
+header.top{position:sticky;top:0;z-index:1000;background:var(--shell);color:var(--on-shell);border-bottom:4px solid var(--shell-line);padding:calc(env(safe-area-inset-top) + 10px) 16px 0}
+.brand{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.brand h1{margin:0;font:800 30px/1 var(--cond);text-transform:uppercase;display:flex;align-items:center;gap:10px}
+.brand h1 i{display:block;width:28px;height:18px;border-top:3px solid currentColor;border-bottom:3px solid currentColor;background:repeating-linear-gradient(90deg,var(--silver) 0 4px,var(--silver2) 4px 8px)}
+.theme{display:grid;grid-template-columns:1fr 1fr;border:2px solid currentColor}
+.theme button{min-height:36px;min-width:52px;border:0;background:transparent;color:var(--on-shell);font:800 12px var(--cond);text-transform:uppercase;letter-spacing:.06em}
+.theme button[aria-pressed="true"]{background:var(--on-shell);color:var(--shell)}
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);margin-top:10px}
+.tabs button{min-height:44px;border:0;background:transparent;color:var(--on-shell);font:800 14px var(--cond);text-transform:uppercase;letter-spacing:.04em;border-bottom:4px solid transparent;margin-bottom:-4px;display:flex;align-items:center;justify-content:center;gap:5px}
+.tabs button[aria-selected="true"]{border-bottom-color:var(--on-shell)}
+.tabs button .ok{width:9px;height:9px;background:var(--on-shell);display:none}
+.tabs button.done .ok{display:inline-block}
+.panel{display:none}.panel.on{display:block}
+.band{position:relative;overflow:hidden;margin-top:16px;background:repeating-linear-gradient(90deg,var(--silver) 0 6px,var(--silver2) 6px 12px);border-top:3px solid var(--band-ink);border-bottom:3px solid var(--band-ink);color:var(--band-ink);padding:12px 16px 8px}
+.band .row{display:flex;align-items:center;gap:8px;font:800 15px/1 var(--cond);text-transform:uppercase;letter-spacing:.06em;position:relative;z-index:1}
+.mark{width:16px;height:16px;border:3px solid var(--band-ink);flex:none}
+.band[data-state="rec"] .mark{background:var(--band-ink)}
+.band[data-state="done"] .mark{background:var(--band-ink);box-shadow:inset 0 0 0 3px var(--silver2)}
+.band[data-state="alert"] .mark{background:var(--alert)}
+.band .val{display:flex;align-items:baseline;justify-content:space-between;gap:10px;position:relative;z-index:1}
+.band .num{font:800 92px/.92 var(--cond);font-variant-numeric:tabular-nums;letter-spacing:-.02em;white-space:nowrap}
+.band .num.empty::before{content:attr(data-g);color:var(--ghost)}
+::placeholder{color:var(--muted);opacity:1}
+.band .unit{font:800 16px/1.1 var(--cond);text-transform:uppercase;text-align:right}
+.band[data-state="rec"]::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,var(--sheen) 48%,var(--sheen) 52%,transparent 70%);transform:translateX(-110%);animation:sheen 2.4s cubic-bezier(.16,1,.3,1) infinite}
+@keyframes sheen{to{transform:translateX(110%)}}
+.bprog{position:absolute;left:0;right:0;bottom:0;height:7px;z-index:2;background:var(--track);opacity:0;transition:opacity .2s}
+.bprog.on{opacity:1}
+.bprog i{display:block;height:100%;width:0;background:var(--band-ink)}
+.bprog.indef i{width:100%;background:repeating-linear-gradient(-45deg,var(--band-ink) 0 8px,var(--hv) 8px 16px);background-size:22.63px 22.63px;animation:hazard .7s linear infinite}
+@keyframes hazard{to{background-position:22.63px 0}}
+.meaning{margin:12px 16px 0;font:600 17px/1.35 var(--sans)}
+.verdict{display:inline-flex;align-items:center;gap:8px;font:800 16px/1 var(--cond);text-transform:uppercase;letter-spacing:.04em;padding:7px 10px;background:var(--fill);color:var(--on-fill)}
+.verdict.pass{background:var(--pass);color:var(--on-pass)}
+.verdict.fail{background:var(--alert);color:var(--on-alert)}
+.verdict svg{width:16px;height:16px}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:2px solid var(--line);background:var(--card);margin:14px 16px 0}
+.tiles>div{padding:8px 10px 9px;border-right:2px solid var(--line);min-width:0}
+.tiles>div:last-child{border-right:0}
+.tiles b{display:block;font:800 30px/1.05 var(--cond);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tiles span{display:block;font:600 12px/1.25 var(--sans);text-transform:uppercase;letter-spacing:.03em;color:var(--muted)}
+.card{background:var(--card);border:2px solid var(--line);margin:14px 16px 0;padding:12px}
+.card h2{font:800 17px/1.2 var(--cond);text-transform:uppercase;letter-spacing:.05em;margin:0 0 2px}
+.cap{font:400 14px/1.4 var(--sans);color:var(--muted);margin:0 0 8px}
+.status{font:500 14px/1.4 var(--sans);color:var(--muted);margin:10px 16px 0;min-height:1.4em}
+.status b{color:var(--ink)}
+canvas{display:block;width:100%}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:2px solid var(--line);background:var(--card)}
+.seg button{min-height:48px;border:0;border-right:2px solid var(--line);background:transparent;font:800 14px/1.1 var(--cond);text-transform:uppercase;letter-spacing:.03em;padding:4px}
+.seg button:last-child{border-right:0}
+.seg button small{display:block;font:600 11px var(--sans);text-transform:none;letter-spacing:0;opacity:.85}
+.seg button[aria-pressed="true"]{background:var(--fill);color:var(--on-fill)}
+label.field{display:block;font:600 14px var(--sans);margin:10px 0 4px}
+input[type=text],input[type=number]{font:700 18px var(--sans);border:2px solid var(--line);background:var(--card);padding:8px 10px;width:100%;border-radius:0}
+.dims{display:grid;grid-template-columns:1fr auto 1fr auto 1fr auto;gap:6px;align-items:center}
+.dims span{font:800 16px var(--cond);text-transform:uppercase}
+.vol{font:800 22px var(--cond);margin-top:10px}
+.meter{height:14px;border:2px solid var(--line);background:var(--card);position:relative;margin-top:8px}
+.meter div{height:100%;width:0;background:var(--fill);transition:width .08s linear}
+.meter i{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--alert)}
+table{width:100%;border-collapse:collapse;font:500 14.5px/1.3 var(--sans);font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--grid);vertical-align:middle}
+th{font:700 12.5px var(--cond);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:2px solid var(--line)}
+td.r,th.r{text-align:right}
+.btn2{min-height:44px;border:2px solid var(--line);background:var(--card);font:800 15px var(--cond);text-transform:uppercase;letter-spacing:.04em;padding:6px 10px}
+.btn2:disabled{opacity:.4}
+.btn2.sm{min-height:36px;font-size:13px;padding:6px 10px}
+.btn2.sm svg{width:14px;height:14px;display:block}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.rtb{display:grid;grid-template-columns:62px 1fr 64px;align-items:center;gap:8px;margin:7px 0;font:600 14px var(--sans);font-variant-numeric:tabular-nums}
+.rtb .t{font:700 13px var(--cond);text-transform:uppercase;color:var(--muted)}
+.rtb .tr{position:relative;height:18px;background:var(--ground);border:1px solid var(--grid)}
+.rtb .f{position:absolute;left:0;top:0;bottom:0}
+.rtb .lim{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--ink)}
+.rtb .v{text-align:right}
+.checks{display:grid;gap:0;border:2px solid var(--line);background:var(--card);margin:14px 16px 0}
+.check{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:12px;border-bottom:2px solid var(--line);align-items:center}
+.check:last-child{border-bottom:0}
+.check h3{margin:0;font:800 17px var(--cond);text-transform:uppercase;letter-spacing:.04em}
+.check p{grid-column:1/-1;margin:0;font-size:15px;color:var(--muted)}
+.check b.v{font:800 30px/1 var(--cond);font-variant-numeric:tabular-nums;justify-self:end}
+.sti{position:relative;margin:30px 0 26px}
+.sti .bar{display:grid;grid-template-columns:30fr 15fr 15fr 15fr 25fr;gap:2px;height:18px}
+.sti .bar div{height:100%}
+.sti .lab{display:grid;grid-template-columns:30fr 15fr 15fr 15fr 25fr;font:700 11.5px/1.15 var(--cond);text-transform:uppercase;text-align:center;color:var(--muted);margin-top:4px}
+.sti .pin{position:absolute;top:-24px;transform:translateX(-50%);font:800 12px/1 var(--cond);text-transform:uppercase;white-space:nowrap;text-align:center}
+.sti .pin::after{content:"";display:block;width:0;height:0;margin:3px auto 0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:9px solid var(--ink)}
+.sti .pin.after{top:auto;bottom:-24px}
+.sti .pin.after::after{display:none}
+.sti .pin.after::before{content:"";display:block;width:0;height:0;margin:0 auto 3px;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:9px solid var(--pass)}
+.plan{border:2px solid var(--line);background:var(--ground);padding:12px;margin-top:8px;font-size:15.5px}
+.plan b.n{font:800 34px/1 var(--cond);display:block}
+.empty{font:700 15px var(--cond);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:center;padding:22px 8px}
+.method h2{font:800 22px/1.1 var(--cond);text-transform:uppercase;margin:18px 16px 6px}
+.method p,.method li{max-width:62ch;font-size:15.5px}
+.method ol,.method ul{margin:0 16px 12px 0;padding-left:36px}
+.method p{margin:0 16px 10px}
+.actions{position:fixed;left:0;right:0;bottom:0;z-index:1001;background:var(--dock);padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+.actions .in{max-width:608px;margin:0 auto;display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px}
+.actions button{min-height:54px;font:800 18px/1 var(--cond);text-transform:uppercase;letter-spacing:.05em;border:0;padding:0 8px}
+.go{background:var(--hv);color:var(--on-hv)}
+.go:disabled{background:var(--go-off);color:var(--go-off-ink)}
+.go.wait{background:repeating-linear-gradient(-45deg,var(--wait1) 0 8px,var(--wait2) 8px 16px);background-size:22.63px 22.63px;animation:hazard .7s linear infinite;color:var(--hv)}
+.stopb{background:var(--alert);color:var(--on-alert)}
+.stopb:disabled{background:transparent;color:var(--dock-muted);box-shadow:inset 0 0 0 2px var(--dock-off)}
+.sec{background:transparent;color:var(--on-dock);box-shadow:inset 0 0 0 2px var(--dock-muted)}
+.sec:disabled{opacity:.4}
+.warn{background:var(--alert);color:var(--on-alert);font:600 15px var(--sans);padding:12px 16px}
+@media (min-width:1000px){ body{background:var(--dock)} .app{background:var(--ground);box-shadow:0 0 0 4px var(--shell-line)} .actions{left:50%;right:auto;width:640px;transform:translateX(-50%)} }
+@media (prefers-reduced-motion: reduce){ *{animation:none!important;transition:none!important} }
+@media print{
+  header.top,.actions,.noprint,#pRoom,#pNoise,#pEcho,#pSaved,#pMethod{display:none!important}
+  #pReport{display:block!important}
+  body,.app{background:#fff!important;color:#000!important;padding:0!important}
+  .card,.checks{break-inside:avoid;border-color:#000}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<div id="secure" class="warn hide">This page isn't on a secure (https) link, so the phone won't share its microphone. Open the GitHub Pages link instead.</div>
+<header class="top">
+  <div class="brand"><h1><i aria-hidden="true"></i>EchoCheck</h1>
+    <div class="theme" role="group" aria-label="Colour mode"><button type="button" data-theme="day">Day</button><button type="button" data-theme="night">Night</button></div></div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-p="pRoom" aria-selected="true"><span class="ok"></span>Room</button><button role="tab" data-p="pNoise" aria-selected="false"><span class="ok"></span>Noise</button><button role="tab" data-p="pEcho" aria-selected="false"><span class="ok"></span>Echo</button><button role="tab" data-p="pReport" aria-selected="false">Report</button><button role="tab" data-p="pSaved" aria-selected="false">Saved</button>
+  </nav>
+</header>
+
+<!-- ============ 1 ROOM ============ -->
+<section class="panel on" id="pRoom">
+  <div class="card">
+    <h2>Which room?</h2>
+    <p class="cap">The limits come from ANSI S12.60, the classroom acoustics standard.</p>
+    <div class="seg" role="group" aria-label="Room type">
+      <button data-type="small" aria-pressed="true">Classroom<small>up to 283 m³</small></button><button data-type="large" aria-pressed="false">Large class<small>283–566 m³</small></button><button data-type="other" aria-pressed="false">Other room<small>no limit</small></button>
+    </div>
+    <label class="field" for="rmName">Room name</label>
+    <input type="text" id="rmName" placeholder="e.g. Block B, Room 204">
+    <label class="field">Size (length × width × height)</label>
+    <div class="dims">
+      <input type="number" id="dL" value="9" min="1" max="100" step="0.1" inputmode="decimal" aria-label="Length in metres"><span>×</span>
+      <input type="number" id="dW" value="7" min="1" max="100" step="0.1" inputmode="decimal" aria-label="Width in metres"><span>×</span>
+      <input type="number" id="dH" value="3.2" min="2" max="20" step="0.1" inputmode="decimal" aria-label="Height in metres"><span>m</span>
+    </div>
+    <div class="vol" id="vol"></div>
+    <p class="cap" id="limCap"></p>
+  </div>
+  <div class="card">
+    <h2>What the audit checks</h2>
+    <table><thead><tr><th>Check</th><th class="r">Limit</th><th>Step</th></tr></thead><tbody id="limTable"></tbody></table>
+  </div>
+  <div class="card">
+    <h2>Before you start</h2>
+    <p class="cap" style="margin:0">Close the doors and windows and switch on fans or AC as they normally run in class. The room should be empty and quiet for the noise test.</p>
+  </div>
+</section>
+
+<!-- ============ 2 NOISE ============ -->
+<section class="panel" id="pNoise">
+  <div class="band" id="bNoise" data-state="idle" data-ghost="00"><div class="row"><span class="mark"></span><span class="lbl">Ready</span></div><div class="val"><span class="num empty" data-g="00"></span><span class="unit">dB(A)<br>background</span></div></div>
+  <div class="meaning" id="nMean">Stand where the students sit and tap Start 30 s test. Stay silent.</div>
+  <div class="tiles">
+    <div><b id="nLeq">–</b><span>dB(A) Leq</span></div>
+    <div><b id="nL90">–</b><span>dB(A) L90 floor</span></div>
+    <div><b id="nMax">–</b><span>dB(A) loudest</span></div>
+  </div>
+  <div class="card">
+    <h2>Background level</h2>
+    <p class="cap">dB(A) each second. The dashed line is the 35 dB(A) limit.</p>
+    <canvas id="nC" aria-label="Background noise level over time"></canvas>
+  </div>
+  <div class="card">
+    <h2>Calibration</h2>
+    <p class="cap">Phone mics aren't calibrated, so levels are estimates (about ±5 dB) until matched to a sound level meter. Hold both together in a steady sound, type the meter's reading and tap Match.</p>
+    <div class="grid2" style="grid-template-columns:1fr auto"><input type="number" id="calRef" placeholder="Meter reading, dB(A)" inputmode="decimal"><button class="btn2" id="calBtn" disabled>Match</button></div>
+    <p class="cap" id="calCap" style="margin-top:8px"></p>
+  </div>
+</section>
+
+<!-- ============ 3 ECHO ============ -->
+<section class="panel" id="pEcho">
+  <div class="band" id="bEcho" data-state="idle"><div class="row"><span class="mark"></span><span class="lbl">Ready</span></div><div class="val"><span class="num empty" data-g="0.00"></span><span class="unit">seconds<br>echo time</span></div></div>
+  <div class="meaning" id="eMean">Tap Listen, then clap once, loud and sharp, and stay quiet for 2 seconds. Do 3–6 claps from different spots.</div>
+  <div class="card">
+    <h2>Input level</h2>
+    <p class="cap">A clap above the orange line starts a 2.5 s capture.</p>
+    <div class="meter"><div id="eLevel"></div><i id="eTrig" style="left:40%"></i></div>
+  </div>
+  <div class="tiles">
+    <div><b id="eEdt">–</b><span>s early decay</span></div>
+    <div><b id="eC50">–</b><span>dB clarity C50</span></div>
+    <div><b id="eN">0</b><span>claps</span></div>
+  </div>
+  <div class="card">
+    <h2>How the echo dies away · 1 kHz</h2>
+    <p class="cap">Energy left in the room (dB) against time. Dashed: the T20 fit. Dotted grey: a room exactly at the limit.</p>
+    <canvas id="eDecC" aria-label="Energy decay curve of the last clap"></canvas>
+  </div>
+  <div class="card">
+    <h2>3D echo waterfall</h2>
+    <p class="cap">How the last clap's echo dies away at each pitch: height is the level (dB), depth is time. Orange curtains ring longer than the limit; the dotted lines show a room exactly at the limit. Drag to turn it; double-tap to reset.</p>
+    <canvas id="wf3dC" aria-label="3D waterfall of echo decay by frequency and time"></canvas>
+  </div>
+  <div class="card">
+    <h2>Echo time by pitch</h2>
+    <p class="cap">Average over your claps. The dark tick is the limit.</p>
+    <div id="eBands"><div class="empty">No claps yet</div></div>
+  </div>
+  <div class="card">
+    <h2>Claps</h2>
+    <table><thead><tr><th>#</th><th class="r">Echo</th><th class="r">EDT</th><th class="r">C50</th><th class="r">Range</th></tr></thead><tbody id="eTable"><tr><td colspan="5" class="cap">No claps yet.</td></tr></tbody></table>
+    <div class="grid2"><button class="btn2" id="eUndo" disabled>Drop last clap</button><button class="btn2" id="eClear">Clear claps</button></div>
+  </div>
+</section>
+
+<!-- ============ 4 REPORT ============ -->
+<section class="panel" id="pReport">
+  <div class="card" style="border-bottom:0">
+    <h2 id="rTitle">Acoustic audit</h2>
+    <p class="cap" id="rMeta"></p>
+    <div id="rOverall"></div>
+  </div>
+  <div class="checks" id="rChecks"></div>
+  <div class="card">
+    <h2>Speech intelligibility (STI)</h2>
+    <p class="cap">Estimated from the echo times and the noise, using the IEC 60268-16 method, for a teacher's voice reaching students at 60 dB(A). The top pin is the room now; the green pin is after the fix.</p>
+    <div class="sti" id="sti"><div class="bar" id="stiBar"></div><div class="lab"><span>Bad</span><span>Poor</span><span>Fair</span><span>Good</span><span>Excellent</span></div></div>
+  </div>
+  <div class="card">
+    <h2>Fix plan</h2>
+    <div id="rPlan"><div class="empty">Measure the echo first</div></div>
+  </div>
+  <div class="card noprint">
+    <h2>Share and save</h2>
+    <div class="grid2"><button class="btn2" id="xCsv">Audit CSV</button><button class="btn2" id="xPrint">Print / PDF</button></div>
+    <div class="grid2"><button class="btn2" id="svSave">Save audit</button><button class="btn2" id="newAudit">New audit</button></div>
+    <p class="cap" id="svMsg" style="margin-top:8px"></p>
+  </div>
+  <section class="method noprint" id="pMethod">
+    <h2>The problem</h2>
+    <p>In an echoey or noisy classroom, students miss words. It hits younger students, second-language learners and anyone with hearing loss hardest. Acoustic consultants measure this with expensive kit. EchoCheck does a screening audit with a phone and says what fix is needed.</p>
+    <h2>How it's measured</h2>
+    <ol>
+      <li><b>Background noise.</b> 30 s of microphone signal in 4,096-sample blocks. Each block is Fourier-transformed and A-weighted (IEC 61672). Leq is the energy average, L90 the level exceeded 90 % of the time, which is the steady floor from fans and traffic.</li>
+      <li><b>Echo time (RT60).</b> A clap is an impulse. The capture is filtered into octave bands (250 Hz–4 kHz). Schroeder backward integration (ISO 3382-2) gives the decay curve, with the noise subtracted. A line fitted from −5 to −25 dB (T20) is extrapolated to 60 dB. The headline value is the mean of 500 Hz and 1 kHz.</li>
+      <li><b>Clarity C50.</b> 10·log₁₀(energy in the first 50 ms / energy after), at 1 kHz.</li>
+      <li><b>STI.</b> For 7 octave bands × 14 modulation frequencies: m(F) = 1/√(1+(2πF·T/13.8)²) × 1/(1+10^(−SNR/10)). That turns into an apparent SNR, clipped to ±15 dB, then a transmission index, and the bands are weighted and summed. SNR = 60 dB(A) speech − background Leq. Bands outside 250 Hz–4 kHz reuse the nearest measured echo time.</li>
+      <li><b>Fix.</b> Sabine: A = 0.161·V / T. Extra absorption = 0.161·V·(1/T<sub>limit</sub> − 1/T<sub>now</sub>). Panel area = that ÷ 0.75 (a 0.8-absorbing panel replacing a surface absorbing about 0.05).</li>
+      <li><b>Limits.</b> ANSI S12.60-2010: echo time ≤ 0.6 s up to 283 m³ and ≤ 0.7 s up to 566 m³; background noise ≤ 35 dB(A).</li>
+    </ol>
+    <h2>Limits, honestly</h2>
+    <ul>
+      <li>A screening audit, not a certified measurement. Uncalibrated noise levels are ±5 dB, and the STI uses an assumed voice level.</li>
+      <li>A clap gives 40–50 dB of decay range, enough for T20 but not T30. Bass bands are less certain; a balloon pop works better.</li>
+      <li>Measure at 2–3 spots with the room set up as normally used.</li>
+    </ul>
+    <p class="cap" style="margin:16px">ED5518 Assignment 2 · Sidharth Raj M · NS26Z087</p>
+  </section>
+</section>
+
+<!-- ============ SAVED ============ -->
+<section class="panel" id="pSaved">
+  <div class="card">
+    <h2>Saved audits</h2>
+    <p class="cap">Stored on this phone. Compare rooms on one scale.</p>
+    <div id="savedList"><div class="empty">Nothing saved yet</div></div>
+  </div>
+</section>
+
+<div class="actions"><div class="in"><button class="go" id="goBtn">Next: noise</button><button class="stopb" id="stopBtn" disabled>Stop</button><button class="sec" id="nextBtn">Report</button></div></div>
+</div>
+
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const CSSV={}; function css(n){ if(!(n in CSSV)) CSSV[n]=getComputedStyle(document.documentElement).getPropertyValue(n).trim(); return CSSV[n]; }
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const svg=(p,w)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w||3}" stroke-linecap="square" aria-hidden="true">${p}</svg>`;
+const CHECK='<path d="M4 12l5 5L20 6"/>', CROSS='<path d="M6 6l12 12M18 6L6 18"/>';
+const verdict=(k,t)=>`<span class="verdict ${k||''}">${k==='pass'?svg(CHECK):k==='fail'?svg(CROSS):''}${t}</span>`;
+
+/* ---------- standards ---------- */
+const TYPES={small:{name:'Classroom (≤ 283 m³)', rt:0.6}, large:{name:'Large classroom (283–566 m³)', rt:0.7}, other:{name:'Other room', rt:null}};
+const NOISE_LIM=35, SPEECH=60;
+const BANDS=[250,500,1000,2000,4000];
+
+/* ---------- maths ---------- */
+function median(a){ if(!a.length) return NaN; const s=a.slice().sort((x,y)=>x-y), m=s.length>>1; return s.length%2? s[m] : (s[m-1]+s[m])/2; }
+function linfit(xs,ys){ const n=xs.length; let sx=0,sy=0,sxx=0,sxy=0; for(let i=0;i<n;i++){ sx+=xs[i]; sy+=ys[i]; sxx+=xs[i]*xs[i]; sxy+=xs[i]*ys[i]; } const b=(n*sxy-sx*sy)/((n*sxx-sx*sx)||1); return {b, a:(sy-b*sx)/n}; }
+function fft(re,im){ const n=re.length; for(let i=1,j=0;i<n;i++){ let bit=n>>1; for(;j&bit;bit>>=1) j^=bit; j^=bit; if(i<j){ [re[i],re[j]]=[re[j],re[i]]; [im[i],im[j]]=[im[j],im[i]]; } }
+  for(let len=2;len<=n;len<<=1){ const ang=-2*Math.PI/len, wr=Math.cos(ang), wi=Math.sin(ang); for(let i=0;i<n;i+=len){ let cr=1,ci=0; for(let k=0;k<len/2;k++){ const a=i+k,b=a+len/2,tr=re[b]*cr-im[b]*ci,ti=re[b]*ci+im[b]*cr; re[b]=re[a]-tr; im[b]=im[a]-ti; re[a]+=tr; im[a]+=ti; const nr=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=nr; } } } }
+function aWeight(f){ const f2=f*f, n=12194**2*f2*f2, d=(f2+20.6**2)*Math.sqrt((f2+107.7**2)*(f2+737.9**2))*(f2+12194**2); return (n/d)*1.2589; }
+const NZB=115;     // typical phone mic: dB SPL at 0 dBFS (estimate; calibrate)
+const AW={N:0};
+function aPrep(N,sr){ AW.N=N; AW.sr=sr; AW.w=new Float64Array(N/2); for(let k=1;k<N/2;k++){ const a=aWeight(k*sr/N); AW.w[k]=a*a; } AW.win=new Float64Array(N); let s2=0; for(let n=0;n<N;n++){ AW.win[n]=0.5-0.5*Math.cos(2*Math.PI*n/(N-1)); s2+=AW.win[n]**2; } AW.mw2=s2/N; }
+function blockLA(x,sr){ const N=x.length; if(AW.N!==N || AW.sr!==sr) aPrep(N,sr); const re=new Float64Array(N), im=new Float64Array(N); let pk=0; for(let n=0;n<N;n++){ re[n]=x[n]*AW.win[n]; pk=Math.max(pk,Math.abs(x[n])); } fft(re,im); let e=0; for(let k=1;k<N/2;k++) e+=2*(re[k]*re[k]+im[k]*im[k])*AW.w[k]; e/=N*N*AW.mw2; return 10*Math.log10(e+1e-20)+NZB; }
+function bandpass(x,f0,sr){ const w0=2*Math.PI*f0/sr, al=Math.sin(w0)*Math.sinh(Math.LN2/2*w0/Math.sin(w0)); const b0=al/(1+al), b2=-al/(1+al), a1=-2*Math.cos(w0)/(1+al), a2=(1-al)/(1+al); let y=Float64Array.from(x);
+  for(let p=0;p<2;p++){ const o=new Float64Array(y.length); let x1=0,x2=0,y1=0,y2=0; for(let n=0;n<y.length;n++){ const v=b0*y[n]+b2*x2-a1*y1-a2*y2; x2=x1; x1=y[n]; y2=y1; y1=v; o[n]=v; } y=o; } return y; }
+function decayBand(h,sr,onset){
+  const n=h.length-onset; if(n<sr*0.3) return null;
+  const e=new Float64Array(n); for(let i=0;i<n;i++) e[i]=h[onset+i]*h[onset+i];
+  const tail=Math.floor(n*0.15); let nE=0; for(let i=n-tail;i<n;i++) nE+=e[i]; nE/=tail;
+  const W=Math.round(sr*0.01), env=[]; for(let i=0;i+W<=n;i+=W){ let s=0; for(let j=i;j<i+W;j++) s+=e[j]; env.push(s/W); }
+  let pk=0; for(let i=0;i<env.length;i++) if(env[i]>env[pk]) pk=i;
+  const range=10*Math.log10(env[pk]/(nE||1e-20));
+  let cut=env.length-1; for(let i=pk;i<env.length;i++){ if(env[i]<nE*Math.pow(10,0.5)){ cut=i; break; } }
+  const iEnd=Math.min(n,(cut+1)*W), start=pk*W, cum=new Float64Array(iEnd-start+1);
+  for(let i=iEnd-1;i>=start;i--) cum[i-start]=cum[i-start+1]+Math.max(0,e[i]-nE);
+  const tot=cum[0]||1e-20, edc={t:[],db:[]}, step=Math.max(1,Math.round(sr*0.002));
+  for(let i=0;i<cum.length-1;i+=step){ edc.t.push(i/sr); edc.db.push(10*Math.log10(Math.max(cum[i]/tot,1e-12))); }
+  const fit=(hi,lo)=>{ const xs=[],ys=[]; for(let i=0;i<edc.t.length;i++){ if(edc.db[i]<=hi && edc.db[i]>=lo){ xs.push(edc.t[i]); ys.push(edc.db[i]); } if(edc.db[i]<lo) break; } if(xs.length<5) return null; const L=linfit(xs,ys); return L.b<0 ? {rt:-60/L.b,a:L.a,b:L.b,t0:xs[0],t1:xs[xs.length-1]} : null; };
+  const reach=edc.db[edc.db.length-1], t20= reach<=-25 ? fit(-5,-25) : null, edt=fit(0,-10);
+  const i50=Math.min(cum.length-1,Math.round(0.05*sr)), c50=10*Math.log10(Math.max(tot-cum[i50],1e-20)/Math.max(cum[i50],1e-20));
+  return {edc,t20,edt,range,c50};
+}
+function analyzeClap(x,sr){
+  let mx=0, on=0; for(let i=0;i<x.length;i++) mx=Math.max(mx,Math.abs(x[i])); if(mx<1e-3) return null;
+  for(let i=0;i<x.length;i++) if(Math.abs(x[i])>0.5*mx){ on=i; break; }
+  const bands={}; BANDS.forEach(f=>{ bands[f]=decayBand(bandpass(x,f,sr),sr,Math.max(0,on-Math.round(0.002*sr))); });
+  const rts=[bands[500]&&bands[500].t20&&bands[500].t20.rt, bands[1000]&&bands[1000].t20&&bands[1000].t20.rt].filter(Boolean); if(!rts.length) return null;
+  const edts=[bands[500]&&bands[500].edt&&bands[500].edt.rt, bands[1000]&&bands[1000].edt&&bands[1000].edt.rt].filter(Boolean);
+  return {bands, rtMid:rts.reduce((a,b)=>a+b,0)/rts.length, edt:edts.length? edts.reduce((a,b)=>a+b,0)/edts.length : null, c50: bands[1000]?bands[1000].c50:null, range:Math.min(...[bands[500],bands[1000]].filter(Boolean).map(b=>b.range))};
+}
+// IEC 60268-16 indirect STI from reverberation time per octave and a broadband SNR
+const OCT=[125,250,500,1000,2000,4000,8000], STI_W=[0.13,0.14,0.11,0.12,0.19,0.17,0.14], MODF=[0.63,0.8,1,1.25,1.6,2,2.5,3.15,4,5,6.3,8,10,12.5];
+function stiOf(rt,snr){
+  let s=0; OCT.forEach((f,i)=>{ const T= rt[f] ?? (f<250? rt[250] : f>4000? rt[4000] : null) ?? rt.mid; let ti=0;
+    MODF.forEach(F=>{ const m=(1/Math.sqrt(1+(2*Math.PI*F*T/13.8)**2))*(1/(1+Math.pow(10,-snr/10))); const x=clamp(10*Math.log10(m/(1-m)),-15,15); ti+=(x+15)/30; });
+    s+=STI_W[i]*ti/MODF.length; });
+  return s;
+}
+const STI_CAT=[{max:0.30,n:'Bad'},{max:0.45,n:'Poor'},{max:0.60,n:'Fair'},{max:0.75,n:'Good'},{max:1.01,n:'Excellent'}];
+const stiCat=v=>STI_CAT.find(c=>v<c.max);
+function stiPos(v){ // position on the 30/15/15/15/25 scale (0–1)
+  const e=[0,0.30,0.45,0.60,0.75,1], w=[30,15,15,15,25]; let acc=0;
+  for(let i=0;i<5;i++){ if(v<e[i+1]||i===4) return (acc+w[i]*clamp((v-e[i])/(e[i+1]-e[i]),0,1))/100; acc+=w[i]; } return 1; }
+
+/* ---------- audit state ---------- */
+let A=newAudit();
+function newAudit(){ return {id:Date.now(), name:'', date:new Date().toISOString(), type:'small', L:9, W:7, H:3.2, cal:0, noise:null, claps:[]}; }
+const vol=()=>A.L*A.W*A.H;
+function avgClaps(){
+  const C=A.claps; if(!C.length) return null;
+  const mean=a=>{ const v=a.filter(x=>x!=null&&isFinite(x)); return v.length? v.reduce((p,q)=>p+q,0)/v.length : null; };
+  const bands={}; BANDS.forEach(f=>bands[f]=mean(C.map(c=>c.bands[f])));
+  const rt=mean(C.map(c=>c.rt)), sd=C.length>1? Math.sqrt(C.reduce((p,c)=>p+(c.rt-rt)**2,0)/(C.length-1)) : null;
+  return {rt, sd, edt:mean(C.map(c=>c.edt)), c50:mean(C.map(c=>c.c50)), bands, n:C.length};
+}
+function noiseStats(){ const h=A.noise&&A.noise.hist; if(!h||!h.length) return null; const c=A.cal; const Ls=h.map(v=>v+c);
+  const leq=10*Math.log10(Ls.reduce((p,L)=>p+Math.pow(10,L/10),0)/Ls.length), s=Ls.slice().sort((a,b)=>a-b), l90=s[Math.floor(s.length*0.1)];
+  return {leq, l90, max:Math.max(...Ls), n:Ls.length}; }
+
+/* ---------- microphone (shared by the noise and echo steps) ---------- */
+const MIC={on:false, mode:null, ctx:null, stream:null, proc:null, sr:48000, lvl:0, ring:null, w:0, total:0, noise:0.002, capture:null, lastCap:-1e9, analysing:false, t0:0, blocks:[], secE:0, secT:0};
+function micStart(mode){
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ status(mode,'<b>This browser has no microphone access.</b>'); return; }
+  MIC.ctx=new AC(); MIC.ctx.resume(); MIC.mode=mode;
+  setGo(true,'Allow access…',true);
+  navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}).then(stream=>{
+    MIC.stream=stream; MIC.sr=MIC.ctx.sampleRate;
+    const src=MIC.ctx.createMediaStreamSource(stream);
+    MIC.proc=MIC.ctx.createScriptProcessor(4096,1,1);
+    Object.assign(MIC,{ring:new Float32Array(Math.round(MIC.sr*4)), w:0, total:0, capture:null, lastCap:-1e9, analysing:false, t0:performance.now(), secE:0, secT:0, blocks:[]});
+    MIC.proc.onaudioprocess=onAudio; src.connect(MIC.proc); MIC.proc.connect(MIC.ctx.destination);
+    MIC.on=true; keepAwake(true); setGo(true,mode==='noise'?'Testing…':'Listening…');
+    if(mode==='noise'){ A.noise={hist:[], at:new Date().toISOString()}; setBand('bNoise',{state:'rec',label:'Testing · stay silent',num:'–'}); }
+    else setBand('bEcho',{state:'rec',label:'Listening · clap once'});
+    frame();
+  }).catch(()=>{ status(mode,'<b>Microphone not allowed.</b> Allow it in Safari, or close the tab and open the page again.'); setGo(false); try{ MIC.ctx.close(); }catch(_){} });
+}
+function micStop(){
+  if(!MIC.on) return; MIC.on=false; keepAwake(false);
+  try{ MIC.proc.disconnect(); MIC.stream.getTracks().forEach(t=>t.stop()); MIC.ctx.close(); }catch(e){}
+  bandProg(MIC.mode==='noise'?'bNoise':'bEcho',null);
+  if(MIC.mode==='noise') finishNoise(); else { setBand('bEcho',{state:A.claps.length?'done':'idle',label:A.claps.length?`${A.claps.length} clap${A.claps.length===1?'':'s'} averaged`:'Ready'}); renderEcho(); }
+  setGo(false); markDone();
+}
+function onAudio(e){
+  const x=e.inputBuffer.getChannelData(0), N=MIC.ring.length; let s2=0;
+  for(let i=0;i<x.length;i++){ MIC.ring[MIC.w]=x[i]; MIC.w=(MIC.w+1)%N; s2+=x[i]*x[i]; }
+  MIC.total+=x.length; MIC.lvl=Math.sqrt(s2/x.length);
+  if(MIC.mode==='noise') noiseBlock(Float32Array.from(x));
+  else echoBlock(x.length);
+  for(let i=0;i<e.outputBuffer.numberOfChannels;i++) e.outputBuffer.getChannelData(i).fill(0);
+}
+const NOISE_SECS=30;
+function noiseBlock(x){
+  const L=blockLA(x,MIC.sr), dt=x.length/MIC.sr;
+  MIC.secE+=Math.pow(10,L/10)*dt; MIC.secT+=dt;
+  if(MIC.secT>=1){ A.noise.hist.push(10*Math.log10(MIC.secE/MIC.secT)); MIC.secE=0; MIC.secT=0; MIC.live=L; if(A.noise.hist.length>=NOISE_SECS) setTimeout(micStop,0); }
+  MIC.live=L;
+}
+function echoBlock(len){
+  const trig=Math.max(MIC.noise*12,0.02);
+  if(!MIC.capture){ if(MIC.lvl>trig && MIC.total-MIC.lastCap>MIC.sr*3) MIC.capture={need:MIC.total+Math.round(MIC.sr*2.5), pre:Math.round(MIC.sr*0.03)+len};
+    else MIC.noise= MIC.lvl<MIC.noise ? 0.9*MIC.noise+0.1*MIC.lvl : 0.995*MIC.noise+0.005*MIC.lvl; }
+  else if(MIC.total>=MIC.capture.need){
+    const N=MIC.ring.length, n=Math.round(MIC.sr*2.5)+MIC.capture.pre, out=new Float32Array(n);
+    for(let i=0;i<n;i++) out[i]=MIC.ring[(MIC.w-n+i+N)%N];
+    MIC.capture=null; MIC.lastCap=MIC.total; MIC.analysing=true;
+    setTimeout(()=>{ handleClap(out); MIC.analysing=false; },30);
+  }
+}
+function handleClap(x){
+  const r=analyzeClap(x,MIC.sr);
+  if(!r){ $('eMean').innerHTML='<b>That clap was too quiet or too short to measure.</b> Clap louder, or pop a balloon.'; return; }
+  const bands={}; BANDS.forEach(f=>bands[f]=r.bands[f]&&r.bands[f].t20 ? r.bands[f].t20.rt : null);
+  const edcs={}; BANDS.forEach(f=>{ const b=r.bands[f]; edcs[f]= b ? {t:b.edc.t.filter((_,i)=>i%6===0).map(v=>+v.toFixed(3)), db:b.edc.db.filter((_,i)=>i%6===0).map(v=>+v.toFixed(1))} : null; });
+  A.claps.push({rt:r.rtMid, edt:r.edt, c50:r.c50, range:r.range, bands, edcs, edc:r.bands[1000]? {t:r.bands[1000].edc.t.filter((_,i)=>i%3===0), db:r.bands[1000].edc.db.filter((_,i)=>i%3===0), fit:r.bands[1000].t20} : null});
+  if(A.claps.length>6) A.claps.shift();
+  if(MIC.on) setBand('bEcho',{label:`Clap ${A.claps.length} done · clap again or stop`});
+  renderEcho(); markDone();
+}
+
+/* ---------- UI helpers ---------- */
+function setBand(id,o){ const b=$(id); if(o.state) b.dataset.state=o.state; if(o.label!=null) b.querySelector('.lbl').textContent=o.label;
+  if(o.num!=null){ const n=b.querySelector('.num'), e=String(o.num)==='–'; n.textContent= e ? '' : o.num; n.dataset.g=b.dataset.ghost||'0.00'; n.classList.toggle('empty',e); } }
+function bandProg(id,v){ const b=$(id); let p=b.querySelector('.bprog'); if(!p){ p=document.createElement('span'); p.className='bprog'; p.innerHTML='<i></i>'; b.appendChild(p); }
+  if(v==null){ p.classList.remove('on','indef'); return; } p.classList.add('on'); p.classList.toggle('indef',v==='indef'); if(v!=='indef') p.firstChild.style.width=(clamp(v,0,1)*100)+'%'; }
+function status(mode,html){ (mode==='noise'?$('nMean'):$('eMean')).innerHTML=html; }
+let wakeLock=null; async function keepAwake(on){ try{ if(on && 'wakeLock' in navigator && !wakeLock){ wakeLock=await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release',()=>{wakeLock=null;}); } if(!on && wakeLock){ await wakeLock.release(); wakeLock=null; } }catch(e){} }
+function frame(){
+  if(!MIC.on) return;
+  if(MIC.mode==='noise'){
+    const h=A.noise.hist; bandProg('bNoise', clamp((h.length+MIC.secT)/NOISE_SECS,0,1));
+    if(MIC.live!=null) setBand('bNoise',{label:`Testing · ${NOISE_SECS-h.length} s left`, num:(MIC.live+A.cal).toFixed(0)});
+    renderNoise();
+  } else {
+    const pos=v=>clamp((v+80)/80,0,1)*100;
+    $('eLevel').style.width=pos(20*Math.log10(Math.max(MIC.lvl,1e-5)))+'%'; $('eTrig').style.left=pos(20*Math.log10(Math.max(MIC.noise*12,0.02)))+'%';
+    bandProg('bEcho', MIC.capture ? 1-(MIC.capture.need-MIC.total)/(MIC.sr*2.5) : MIC.analysing ? 'indef' : null);
+    if(MIC.capture) setBand('bEcho',{label:'Capturing the echo · stay quiet'});
+  }
+  setTimeout(()=>requestAnimationFrame(frame),120);
+}
+
+/* ---------- charts ---------- */
+function setupCanvas(c,h){ const dpr=window.devicePixelRatio||1, w=c.clientWidth||320; if(c.width!==Math.round(w*dpr)||c.height!==Math.round(h*dpr)){ c.width=Math.round(w*dpr); c.height=Math.round(h*dpr); c.style.height=h+'px'; } const ctx=c.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h); return {ctx,w,h}; }
+function ticks(a,b,n){ const sp=b-a; if(!(sp>0)) return [a]; const raw=sp/n, mag=10**Math.floor(Math.log10(raw)), f=raw/mag, st=(f<1.5?1:f<3?2:f<7?5:10)*mag, o=[]; for(let v=Math.ceil(a/st)*st; v<=b+1e-9; v+=st) o.push(+v.toFixed(10)); return o; }
+function chart(c,o){
+  const {ctx,w,h}=setupCanvas(c,o.h||170), m={l:o.ml||44,r:12,t:12,b:24}, pw=w-m.l-m.r, ph=h-m.t-m.b;
+  const X=v=>m.l+(v-o.x[0])/(o.x[1]-o.x[0])*pw, Y=v=>m.t+(1-(v-o.y[0])/(o.y[1]-o.y[0]))*ph;
+  ctx.font='500 12px '+css('--sans');
+  (o.yb||[]).forEach(b=>{ const y0=clamp(Y(b.y1),m.t,m.t+ph), y1=clamp(Y(b.y0),m.t,m.t+ph); if(y1>y0){ ctx.fillStyle=b.fill; ctx.fillRect(m.l,y0,pw,y1-y0); } });
+  ctx.strokeStyle=css('--grid'); ctx.fillStyle=css('--muted'); ctx.lineWidth=1; ctx.textAlign='right'; ctx.textBaseline='middle';
+  (o.yt||ticks(o.y[0],o.y[1],4)).forEach(v=>{ const y=Math.round(Y(v))+.5; ctx.beginPath(); ctx.moveTo(m.l,y); ctx.lineTo(w-m.r,y); ctx.stroke(); ctx.fillText(o.yf?o.yf(v):v,m.l-6,y); });
+  ctx.textBaseline='top'; (o.xt||ticks(o.x[0],o.x[1],5)).forEach(v=>{ const x=X(v); if(x<m.l-1||x>w-m.r+1) return; const s=String(o.xf?o.xf(v):v), tw=ctx.measureText(s).width; ctx.textAlign= x+tw/2>w-2?'right':'center'; ctx.fillText(s, x+tw/2>w-2? w-2 : x, h-m.b+6); });
+  ctx.strokeStyle=css('--ink'); ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(m.l,m.t+ph+.5); ctx.lineTo(w-m.r,m.t+ph+.5); ctx.stroke();
+  ctx.save(); ctx.beginPath(); ctx.rect(m.l,m.t-6,pw,ph+12); ctx.clip();
+  (o.hl||[]).forEach(l=>{ ctx.save(); ctx.setLineDash(l.dash||[]); ctx.strokeStyle=l.color; ctx.lineWidth=l.width||2; ctx.beginPath(); ctx.moveTo(m.l,Y(l.y)); ctx.lineTo(w-m.r,Y(l.y)); ctx.stroke(); ctx.restore(); });
+  let data=false;
+  (o.s||[]).forEach(s=>{ if(s.xs.length>1 && !s.ref) data=true; ctx.save(); ctx.setLineDash(s.dash||[]); ctx.strokeStyle=s.color; ctx.lineWidth=s.width||2; ctx.lineJoin='round'; ctx.beginPath(); s.xs.forEach((x,i)=> i?ctx.lineTo(X(x),Y(s.ys[i])):ctx.moveTo(X(x),Y(s.ys[i]))); ctx.stroke(); ctx.restore(); });
+  ctx.restore();
+  if(!data){ const msg=(o.empty||'No data yet').toUpperCase(); ctx.font='700 14px '+css('--cond'); const tw=ctx.measureText(msg).width; ctx.fillStyle=css('--card'); ctx.fillRect(m.l+pw/2-tw/2-10,m.t+ph/2-12,tw+20,24); ctx.fillStyle=css('--muted'); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(msg,m.l+pw/2,m.t+ph/2); }
+  (o.labels||[]).forEach(l=>{ ctx.fillStyle=css('--ink'); ctx.font='700 12.5px '+css('--sans'); ctx.textAlign=l.align||'left'; ctx.textBaseline='bottom'; ctx.fillText(l.text, X(l.x)+(l.dx||0), clamp(Y(l.y)+(l.dy||-6),m.t+12,m.t+ph)); });
+}
+
+
+/* ---------- tiny 3D view: orthographic projection, painter's order, drag to turn ---------- */
+function View3D(canvas,h,build){
+  this.c=canvas; this.h=h; this.build=build; this.yaw=-0.75; this.pitch=0.6; this.home=[-0.75,0.6];
+  canvas.style.touchAction='none'; canvas.style.cursor='grab';
+  let drag=null, lastTap=0;
+  canvas.addEventListener('pointerdown',e=>{ drag={x:e.clientX,y:e.clientY,yaw:this.yaw,pitch:this.pitch}; canvas.setPointerCapture(e.pointerId);
+    const now=e.timeStamp||Date.now(); if(now-lastTap<300){ [this.yaw,this.pitch]=this.home; this.draw(); } lastTap=now; });
+  canvas.addEventListener('pointermove',e=>{ if(!drag) return; this.yaw=drag.yaw+(e.clientX-drag.x)*0.012; this.pitch=clamp(drag.pitch+(e.clientY-drag.y)*0.008,0.12,1.45); this.draw(); });
+  const end=()=>{ drag=null; }; canvas.addEventListener('pointerup',end); canvas.addEventListener('pointercancel',end);
+}
+View3D.prototype.draw=function(){
+  const {ctx,w,h}=setupCanvas(this.c,this.h), sc=this.build();
+  if(!sc || !sc.polys.length && !sc.lines.length){ ctx.font='700 14px '+css('--cond'); ctx.fillStyle=css('--muted'); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText((sc&&sc.empty||'No data yet').toUpperCase(),w/2,h/2); return; }
+  const cy=Math.cos(this.yaw), sy=Math.sin(this.yaw), cp=Math.cos(this.pitch), sp=Math.sin(this.pitch);
+  const C=sc.center, R=sc.radius||1, s=Math.min(w,h)/(2.25*R);
+  const P=p=>{ const x=p[0]-C[0], y=p[1]-C[1], z=p[2]-C[2], xr=x*cy-y*sy, yr=x*sy+y*cy; return [w/2+xr*s, h/2+(-yr*sp-z*cp)*s*0.95+ (sc.drop||0), yr*cp-z*sp]; };
+  const items=[];
+  sc.polys.forEach(q=>{ const pp=q.p.map(P); items.push({d:pp.reduce((a,v)=>a+v[2],0)/pp.length+(q.bias||0), poly:pp, q}); });
+  sc.lines.forEach(l=>{ const a=P(l.a), b=P(l.b); items.push({d:(a[2]+b[2])/2+(l.bias||0), line:[a,b], l}); });
+  items.sort((a,b)=>b.d-a.d);
+  items.forEach(it=>{
+    if(it.poly){ ctx.beginPath(); it.poly.forEach((v,i)=> i?ctx.lineTo(v[0],v[1]):ctx.moveTo(v[0],v[1])); ctx.closePath();
+      ctx.globalAlpha=it.q.alpha==null?1:it.q.alpha; ctx.fillStyle=it.q.fill; ctx.fill(); ctx.globalAlpha=1;
+      if(it.q.stroke){ ctx.strokeStyle=it.q.stroke; ctx.lineWidth=it.q.lw||1; ctx.stroke(); } }
+    else { ctx.save(); ctx.setLineDash(it.l.dash||[]); ctx.strokeStyle=it.l.color; ctx.lineWidth=it.l.width||1.5; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(it.line[0][0],it.line[0][1]); ctx.lineTo(it.line[1][0],it.line[1][1]); ctx.stroke(); ctx.restore(); }
+  });
+  (sc.dots||[]).forEach(d=>{ const v=P(d.p); ctx.beginPath(); ctx.arc(v[0],v[1],d.r||5,0,7); ctx.fillStyle=d.fill; ctx.fill(); ctx.lineWidth=2.5; ctx.strokeStyle=d.ring; ctx.stroke(); });
+  ctx.font='700 12px '+css('--sans'); ctx.textBaseline='middle';
+  (sc.labels||[]).forEach(l=>{ const v=P(l.p); ctx.textAlign=l.align||'center'; ctx.fillStyle=l.color||css('--muted'); ctx.fillText(l.text,v[0]+(l.dx||0),v[1]+(l.dy||0)); });
+};
+// a box (column) as five shaded faces
+function box3D(x,y,w,hgt,fill,shade){
+  const a=w/2, z=hgt, c=[[x-a,y-a],[x+a,y-a],[x+a,y+a],[x-a,y+a]];
+  const top={p:c.map(q=>[q[0],q[1],z]), fill, stroke:'rgba(0,0,0,.35)', bias:-0.0001};
+  const sides=[[0,1],[1,2],[2,3],[3,0]].map(([i,j],k)=>({p:[[c[i][0],c[i][1],0],[c[j][0],c[j][1],0],[c[j][0],c[j][1],z],[c[i][0],c[i][1],z]], fill, alpha:1, stroke:'rgba(0,0,0,.35)', shadeK:k}));
+  sides.forEach(f=>{ f.fill=shade(fill, f.shadeK%2?0.72:0.86); });
+  return [top,...sides];
+}
+function shadeHex(hex,k){ const m=/^#?([0-9a-f]{6})$/i.exec(hex.trim()); if(!m) return hex; const n=parseInt(m[1],16); const r=Math.round(((n>>16)&255)*k), g=Math.round(((n>>8)&255)*k), b=Math.round((n&255)*k); return `rgb(${r},${g},${b})`; }
+
+// 3D echo waterfall: one curtain per octave band, level (dB) against time
+let wf3D=null;
+function waterfallScene(){
+  const last=A.claps[A.claps.length-1];
+  if(!last || !last.edcs) return {polys:[],lines:[],empty:'Clap to build the waterfall'};
+  const lim=TYPES[A.type].rt, tmax=Math.min(2.0, Math.max(0.8, ...BANDS.map(f=>last.bands[f]||0))*0.8), gap=0.32, Z=v=>(clamp(v,-50,0)+50)/50*0.7;
+  const polys=[], lines=[], labels=[];
+  const X=i=>i*gap, Y=t=>t/tmax*1.4;
+  // floor grid and axes
+  for(let t=0;t<=tmax+1e-9;t+=tmax>1.2?0.4:0.2){ lines.push({a:[-0.1,Y(t),0],b:[X(BANDS.length-1)+0.1,Y(t),0],color:css('--grid'),width:1,bias:1e6}); labels.push({p:[X(BANDS.length-1)+0.18,Y(t),0],text:t.toFixed(1)+' s',align:'left'}); }
+  [0,-10,-20,-30,-40,-50].forEach(db=>{ lines.push({a:[-0.1,0,Z(db)],b:[-0.1,Y(tmax),Z(db)],color:css('--grid'),width:1,bias:1e6}); if(db%20===0) labels.push({p:[-0.14,0,Z(db)],text:db+' dB',align:'right'}); });
+  BANDS.forEach((f,i)=>{
+    const e=last.edcs[f]; labels.push({p:[X(i),-0.12,0],text:(f>=1000?(f/1000)+'k':f)+' Hz',color:css('--ink')});
+    if(!e) return;
+    const pts=[]; e.t.forEach((t,k)=>{ if(t<=tmax) pts.push([X(i),Y(t),Z(e.db[k])]); });
+    if(pts.length<2) return;
+    const over= lim!=null && last.bands[f]!=null && last.bands[f]>lim;
+    polys.push({p:[[X(i),Y(0),0],...pts,[X(i),pts[pts.length-1][1],0]], fill: over?css('--alert'):css('--hv'), alpha:.78, stroke:css('--ink'), lw:1.5});
+    if(lim!=null){ const tl=Math.min(tmax,lim*50/60); lines.push({a:[X(i),Y(0),Z(0)],b:[X(i),Y(tl),Z(-50*tl/(lim*50/60))],color:css('--muted'),width:1.5,dash:[3,4],bias:-0.001}); }
+  });
+  return {polys,lines,labels,center:[X(BANDS.length-1)/2,0.7,0.3],radius:1.05};
+}
+/* ---------- step 1: room ---------- */
+function renderRoom(){
+  const t=TYPES[A.type], V=vol();
+  $('vol').textContent=`Volume ${V.toFixed(0)} m³ · floor ${(A.L*A.W).toFixed(0)} m²`;
+  $('limCap').textContent = (A.type==='small' && V>283) ? `This room is ${V.toFixed(0)} m³, over 283 m³. Consider "Large class".` : (A.type==='large' && V>566) ? `Over 566 m³: ANSI S12.60 classroom limits no longer apply; treat it as a hall.` : '';
+  $('limTable').innerHTML=`<tr><td>Background noise</td><td class="r">≤ ${NOISE_LIM} dB(A)</td><td>2 · Noise</td></tr><tr><td>Echo time (500 Hz–1 kHz)</td><td class="r">${t.rt!=null?'≤ '+t.rt+' s':'none'}</td><td>3 · Echo</td></tr><tr><td>Speech intelligibility</td><td class="r">STI ≥ 0.60 good</td><td>4 · Report</td></tr>`;
+}
+document.querySelectorAll('#pRoom [data-type]').forEach(b=>b.addEventListener('click',()=>{ A.type=b.dataset.type; document.querySelectorAll('#pRoom [data-type]').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); renderRoom(); markDone(); }));
+['dL','dW','dH'].forEach((id,i)=>$(id).addEventListener('input',()=>{ const v=+$(id).value; if(v>0) A[['L','W','H'][i]]=v; renderRoom(); }));
+$('rmName').addEventListener('input',()=>{ A.name=$('rmName').value.trim(); });
+
+/* ---------- step 2: noise ---------- */
+function finishNoise(){
+  const st=noiseStats();
+  if(!st){ setBand('bNoise',{state:'idle',label:'Ready',num:'–'}); return; }
+  const ok=st.leq<=NOISE_LIM;
+  setBand('bNoise',{state: ok?'done':'alert', label:`Background · ${st.n} s measured${A.cal?'':' · estimate'}`, num:st.leq.toFixed(0)});
+  renderNoise();
+}
+function renderNoise(){
+  const st=noiseStats(), h=A.noise&&A.noise.hist||[];
+  $('nLeq').textContent=st?st.leq.toFixed(1):'–'; $('nL90').textContent=st?st.l90.toFixed(0):'–'; $('nMax').textContent=st?st.max.toFixed(0):'–';
+  if(st && !MIC.on){ const ok=st.leq<=NOISE_LIM; $('nMean').innerHTML=`${ok?verdict('pass','Quiet enough'):verdict('fail','Too noisy')} <span style="display:block;margin-top:6px">${st.leq.toFixed(1)} dB(A) against the ${NOISE_LIM} dB(A) limit.${ok?'':' Look for fans, AC units, open windows or a corridor nearby.'}</span>`; }
+  chart($('nC'),{h:160, x:[0,NOISE_SECS], y:[20,80], yt:[20,35,50,65,80], xf:v=>v+' s', yf:v=>v, empty:'Tap Start 30 s test',
+    yb:[{y0:NOISE_LIM,y1:90,fill:css('--over')}], hl:[{y:NOISE_LIM,color:css('--alert'),dash:[6,4]}],
+    s:[{xs:h.map((_,i)=>i+1), ys:h.map(v=>v+A.cal), color:css('--ink'), width:2.2}], labels:[{x:NOISE_SECS,y:NOISE_LIM,text:'35 dB(A) limit',align:'right',dx:-4}]});
+  $('calCap').textContent = A.cal ? `Offset ${A.cal>=0?'+':''}${A.cal.toFixed(1)} dB, matched to your meter.` : 'Offset 0 dB: not calibrated, so levels are estimates.';
+  $('calBtn').disabled=!(A.noise && A.noise.hist.length);
+}
+$('calBtn').addEventListener('click',()=>{ const ref=+$('calRef').value, h=A.noise&&A.noise.hist.slice(-5); if(!ref||!h||!h.length) return;
+  const leq0=10*Math.log10(h.reduce((p,L)=>p+Math.pow(10,L/10),0)/h.length); A.cal=ref-leq0; finishNoise(); renderNoise(); markDone(); });
+
+/* ---------- step 3: echo ---------- */
+function renderEcho(){
+  const lim=TYPES[A.type].rt, av=avgClaps(), last=A.claps[A.claps.length-1];
+  if(av){
+    const over=lim!=null && av.rt>lim;
+    if(!MIC.on) setBand('bEcho',{state: over?'alert':'done', label:`${av.n} clap${av.n===1?'':'s'} averaged`, num:av.rt.toFixed(2)});
+    else setBand('bEcho',{num:av.rt.toFixed(2)});
+    $('eEdt').textContent=av.edt!=null?av.edt.toFixed(2):'–'; $('eC50').textContent=av.c50!=null?(av.c50>=0?'+':'')+av.c50.toFixed(1):'–'; $('eN').textContent=av.n;
+    $('eMean').innerHTML = lim==null ? `${verdict('','Echo '+av.rt.toFixed(2)+' s')} <span style="display:block;margin-top:6px">${av.sd!=null?'± '+av.sd.toFixed(2)+' s over '+av.n+' claps.':'Clap a few more times.'}</span>`
+      : `${over?verdict('fail','Too echoey'):verdict('pass','Within the limit')} <span style="display:block;margin-top:6px">${av.rt.toFixed(2)} s against ${lim} s${av.sd!=null?' · ± '+av.sd.toFixed(2)+' s over '+av.n+' claps':''}.</span>`;
+    const mx=Math.max(1.2,...Object.values(av.bands).filter(Boolean),lim||0)*1.15;
+    $('eBands').innerHTML=BANDS.map(f=>{ const v=av.bands[f], bad=v!=null&&lim!=null&&v>lim; return `<div class="rtb"><span class="t">${f>=1000?(f/1000)+'k':f} Hz</span><span class="tr">${v!=null?`<span class="f" style="width:${(v/mx*100).toFixed(1)}%;background:${bad?css('--alert'):css('--fill')}"></span>`:''}${lim!=null?`<span class="lim" style="left:calc(${(lim/mx*100).toFixed(1)}% - 1px)"></span>`:''}</span><span class="v">${v!=null?v.toFixed(2)+' s':'n/a'}</span></div>`; }).join('');
+  } else { $('eBands').innerHTML='<div class="empty">No claps yet</div>'; ['eEdt','eC50'].forEach(id=>$(id).textContent='–'); $('eN').textContent='0'; if(!MIC.on) setBand('bEcho',{state:'idle',label:'Ready',num:'–'}); }
+  const d=last&&last.edc, tmax=Math.max(0.8, d&&d.fit ? Math.min(2.4,d.fit.rt*0.75) : 1), s=[];
+  if(d){ s.push({xs:d.t, ys:d.db.map(v=>Math.max(v,-60)), color:css('--ink'), width:2.2}); if(d.fit) s.push({xs:[0,tmax], ys:[d.fit.a,d.fit.a+d.fit.b*tmax], color:css('--alert'), width:2.5, dash:[6,4], ref:true}); }
+  if(lim!=null) s.push({xs:[0,tmax], ys:[0,-60*tmax/lim], color:css('--muted'), width:1.5, dash:[3,4], ref:true});
+  chart($('eDecC'),{h:170, x:[0,tmax], y:[-50,2], ml:54, yt:[-50,-40,-30,-20,-10,0], yf:v=>v+' dB', xf:v=>v+' s', empty:'Tap Listen, then clap', yb:[{y0:-25,y1:-5,fill:css('--zone')}], s,
+    labels: d&&d.fit ? [{x:Math.min(tmax*0.95,d.fit.t1), y:d.fit.a+d.fit.b*d.fit.t1, text:`T20 → ${d.fit.rt.toFixed(2)} s`, dx:6}] : []});
+  $('eTable').innerHTML = A.claps.length ? A.claps.map((c,i)=>({c,i})).reverse().map(({c,i})=>`<tr><td>${i+1}</td><td class="r">${c.rt.toFixed(2)} s</td><td class="r">${c.edt!=null?c.edt.toFixed(2)+' s':'–'}</td><td class="r">${c.c50!=null?c.c50.toFixed(1)+' dB':'–'}</td><td class="r">${Math.round(c.range)} dB${c.range<30?' · low':''}</td></tr>`).join('') : '<tr><td colspan="5" class="cap">No claps yet.</td></tr>';
+  $('eUndo').disabled=!A.claps.length;
+  if(wf3D) wf3D.draw();
+}
+$('eUndo').addEventListener('click',()=>{ A.claps.pop(); renderEcho(); markDone(); });
+$('eClear').addEventListener('click',()=>{ A.claps=[]; renderEcho(); markDone(); });
+
+/* ---------- step 4: report ---------- */
+function results(){
+  const av=avgClaps(), ns=noiseStats(), lim=TYPES[A.type].rt, V=vol();
+  const snr= ns ? SPEECH-ns.leq : 25;
+  const rtSet= av ? {...av.bands, mid:av.rt} : null;
+  const stiNow= rtSet ? stiOf(rtSet,snr) : null;
+  let fix=null;
+  if(av){
+    const target = lim!=null ? lim : null;
+    if(target!=null && av.rt>target){
+      const Anow=0.161*V/av.rt, Aneed=0.161*V/target, dA=Aneed-Anow, panels=dA/0.75, k=target/av.rt;
+      const after={}; BANDS.forEach(f=>after[f]= av.bands[f]!=null ? av.bands[f]*k : null); after.mid=target;
+      fix={Anow,Aneed,dA,panels,target, stiAfter: stiOf(after,snr), floor:A.L*A.W};
+    }
+  }
+  return {av, ns, lim, V, snr, assumedSnr:!ns, stiNow, fix};
+}
+function renderReport(){
+  const R=results(), t=TYPES[A.type];
+  $('rTitle').textContent = A.name || 'Acoustic audit';
+  $('rMeta').textContent = `${t.name} · ${R.V.toFixed(0)} m³ · ${new Date(A.date).toLocaleDateString('en-IN',{dateStyle:'medium'})}${A.cal?' · noise calibrated':' · noise uncalibrated'}`;
+  const checks=[];
+  checks.push(R.ns ? {h:'Background noise', v:R.ns.leq.toFixed(0)+' dB(A)', ok:R.ns.leq<=NOISE_LIM, p:`Limit ${NOISE_LIM} dB(A). Steady floor (L90) ${R.ns.l90.toFixed(0)} dB(A).`} : {h:'Background noise', v:'–', ok:null, p:'Not measured yet · step 2.'});
+  checks.push(R.av ? {h:'Echo time', v:R.av.rt.toFixed(2)+' s', ok:R.lim==null?null:R.av.rt<=R.lim, p: R.lim!=null?`Limit ${R.lim} s at 500 Hz–1 kHz, from ${R.av.n} clap${R.av.n===1?'':'s'}.`:'No limit for this room type.'} : {h:'Echo time', v:'–', ok:null, p:'Not measured yet · step 3.'});
+  checks.push(R.stiNow!=null ? {h:'Speech intelligibility', v:R.stiNow.toFixed(2), ok:R.stiNow>=0.60, p:`STI ${stiCat(R.stiNow).n}${R.assumedSnr?' (noise assumed 35 dB(A), not measured)':''}. 0.60 or above is good for teaching.`} : {h:'Speech intelligibility', v:'–', ok:null, p:'Needs the echo test.'});
+  $('rChecks').innerHTML=checks.map(c=>`<div class="check"><h3>${c.h}</h3><b class="v">${c.v}</b><p>${c.ok==null?'':c.ok?verdict('pass','Pass'):verdict('fail','Fail')} ${c.p}</p></div>`).join('');
+  const fails=checks.filter(c=>c.ok===false).length, done=checks.filter(c=>c.ok!=null).length;
+  $('rOverall').innerHTML = done<3 ? `<p class="cap" style="margin:6px 0 0">${3-done} check${3-done===1?'':'s'} still to do.</p>`
+    : fails ? verdict('fail',`${fails} of 3 checks fail`)+' <span style="display:block;margin-top:6px">This room needs treatment before it suits teaching. See the fix plan.</span>' : verdict('pass','All 3 checks pass')+' <span style="display:block;margin-top:6px">Suitable for teaching as measured.</span>';
+  // STI scale with now / after pins on one fixed scale
+  const cols=['--s0','--s1','--s2','--s3','--s4'];
+  $('stiBar').innerHTML=cols.map(c=>`<div style="background:${css(c)}"></div>`).join('');
+  $('sti').querySelectorAll('.pin').forEach(p=>p.remove());
+  if(R.stiNow!=null){ $('sti').insertAdjacentHTML('beforeend',`<span class="pin" style="left:${(stiPos(R.stiNow)*100).toFixed(1)}%">Now ${R.stiNow.toFixed(2)}</span>`);
+    if(R.fix) $('sti').insertAdjacentHTML('beforeend',`<span class="pin after" style="left:${(stiPos(R.fix.stiAfter)*100).toFixed(1)}%">After ${R.fix.stiAfter.toFixed(2)}</span>`); }
+  // fix plan
+  let plan='';
+  if(!R.av) plan='<div class="empty">Measure the echo first</div>';
+  else if(R.fix){ plan=`<div class="plan"><b class="n">${R.fix.panels.toFixed(0)} m²</b>of sound-absorbing panels (α ≈ 0.8). That's about ${Math.round(R.fix.panels/R.fix.floor*100)} % of the ceiling area, or the back wall plus part of the ceiling.</div>
+      <table style="margin-top:10px"><tbody><tr><td>Absorption now</td><td class="r">${R.fix.Anow.toFixed(0)} m²</td></tr><tr><td>Needed for ${R.fix.target} s</td><td class="r">${R.fix.Aneed.toFixed(0)} m²</td></tr><tr><td>Echo time after</td><td class="r">${R.av.rt.toFixed(2)} → ${R.fix.target.toFixed(2)} s</td></tr><tr><td>Speech intelligibility after</td><td class="r">${R.stiNow.toFixed(2)} → ${R.fix.stiAfter.toFixed(2)} (${stiCat(R.fix.stiAfter).n})</td></tr></tbody></table>`; }
+  else plan=`<div class="plan">${R.lim==null?'No echo limit set for this room type.':'The echo time is already within the limit. No absorption needed.'}</div>`;
+  if(R.ns && R.ns.leq>NOISE_LIM) plan+=`<div class="plan" style="margin-top:8px"><b>Noise is ${(R.ns.leq-NOISE_LIM).toFixed(0)} dB over the limit.</b> Panels won't fix this. Quieter fans or AC, sealing doors and windows, or moving the class away from the noise source will.</div>`;
+  $('rPlan').innerHTML=plan;
+}
+$('xPrint').addEventListener('click',()=>window.print());
+const f=(v,d)=>v==null||!isFinite(v)?'':(+v).toFixed(d);
+function save(name,text){ const blob=new Blob([text],{type:'text/csv'}); try{ const file=new File([blob],name,{type:'text/csv'}); if(navigator.canShare && navigator.canShare({files:[file]})){ navigator.share({files:[file],title:name}).catch(()=>{}); return; } }catch(e){} const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1500); }
+$('xCsv').addEventListener('click',()=>{
+  const R=results(), L=[`room,"${A.name||''}"`,`type,${TYPES[A.type].name}`,`volume_m3,${f(R.V,1)}`,`calibration_offset_db,${f(A.cal,1)}`,
+    `background_leq_dba,${f(R.ns&&R.ns.leq,1)}`,`background_l90_dba,${f(R.ns&&R.ns.l90,1)}`,`rt60_mid_s,${f(R.av&&R.av.rt,3)}`,`edt_s,${f(R.av&&R.av.edt,3)}`,`c50_db,${f(R.av&&R.av.c50,2)}`,
+    `sti_now,${f(R.stiNow,3)}`,`panels_needed_m2,${f(R.fix&&R.fix.panels,1)}`,`sti_after_fix,${f(R.fix&&R.fix.stiAfter,3)}`,'',`clap,${BANDS.map(b=>'rt60_'+b+'hz_s').join(',')},rt60_mid_s,edt_s,c50_db,range_db`];
+  A.claps.forEach((c,i)=>L.push([i+1,...BANDS.map(b=>f(c.bands[b],3)),f(c.rt,3),f(c.edt,3),f(c.c50,2),f(c.range,1)].join(',')));
+  if(A.noise){ L.push(''); L.push('second,background_dba'); A.noise.hist.forEach((v,i)=>L.push(`${i+1},${f(v+A.cal,1)}`)); }
+  save(`echocheck_${(A.name||'room').replace(/[^a-z0-9]+/gi,'_')}_${new Date().toISOString().slice(0,10)}.csv`,L.join('\n'));
+});
+
+/* ---------- saved audits ---------- */
+const KEY='echocheck.audits.v1';
+const loadAll=()=>{ try{ return JSON.parse(localStorage.getItem(KEY)||'[]'); }catch(e){ return []; } };
+const storeAll=a=>{ try{ localStorage.setItem(KEY,JSON.stringify(a)); return true; }catch(e){ return false; } };
+$('svSave').addEventListener('click',()=>{ const all=loadAll().filter(x=>x.id!==A.id); all.unshift(JSON.parse(JSON.stringify(A))); $('svMsg').textContent= storeAll(all.slice(0,30)) ? 'Saved on this phone.' : 'Could not save (storage full or blocked).'; renderSaved(); });
+$('newAudit').addEventListener('click',()=>{ if(MIC.on) micStop(); A=newAudit(); loadRoomInputs(); renderAll(); showPanel('pRoom'); });
+function renderSaved(){
+  const all=loadAll();
+  if(!all.length){ $('savedList').innerHTML='<div class="empty">Nothing saved yet</div>'; return; }
+  const keep=A, rows=all.map(a=>{ A=a; const R=results(); A=keep; return {a,R}; });
+  const mx=Math.max(1.2,...rows.map(r=>r.R.av?r.R.av.rt:0))*1.1;
+  $('savedList').innerHTML=rows.map(({a,R})=>`<div style="margin:10px 0 14px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>${a.name||'Untitled room'}</b><span><button class="btn2 sm" data-open="${a.id}">Open</button> <button class="btn2 sm" data-del="${a.id}" aria-label="Delete audit">${svg(CROSS,2.6)}</button></span></div>
+    <div class="rtb" style="grid-template-columns:62px 1fr 64px"><span class="t">Echo</span><span class="tr">${R.av?`<span class="f" style="width:${(R.av.rt/mx*100).toFixed(1)}%;background:${R.lim!=null&&R.av.rt>R.lim?css('--alert'):css('--fill')}"></span>`:''}${R.lim!=null?`<span class="lim" style="left:calc(${(R.lim/mx*100).toFixed(1)}% - 1px)"></span>`:''}</span><span class="v">${R.av?R.av.rt.toFixed(2)+' s':'–'}</span></div>
+    <span class="cap">${R.ns?R.ns.leq.toFixed(0)+' dB(A) noise · ':''}${R.stiNow!=null?'STI '+R.stiNow.toFixed(2)+' '+stiCat(R.stiNow).n:'no STI yet'}</span></div>`).join('');
+}
+$('savedList').addEventListener('click',e=>{ const o=e.target.closest('[data-open]'), d=e.target.closest('[data-del]');
+  if(o && !MIC.on){ A=loadAll().find(x=>x.id===+o.dataset.open); loadRoomInputs(); renderAll(); showPanel('pReport'); }
+  if(d){ storeAll(loadAll().filter(x=>x.id!==+d.dataset.del)); renderSaved(); } });
+
+/* ---------- navigation, dock, theme ---------- */
+const STEPS=['pRoom','pNoise','pEcho','pReport','pSaved'];
+let cur='pRoom';
+function markDone(){
+  const t=document.querySelectorAll('.tabs button');
+  t[0].classList.add('done'); t[1].classList.toggle('done',!!noiseStats()); t[2].classList.toggle('done',!!A.claps.length);
+}
+function setGo(running,label,wait){
+  const go=$('goBtn'), st=$('stopBtn');
+  go.classList.toggle('wait',!!wait);
+  if(running){ go.disabled=true; go.textContent=label||go.textContent; st.disabled=false; }
+  else { go.disabled=false; st.disabled=true; dockFor(cur); }
+}
+function dockFor(id){
+  const go=$('goBtn'), nx=$('nextBtn'), dock=go.closest('.actions');
+  dock.classList.toggle('hide', id==='pSaved');
+  if(MIC.on) return;
+  ({pRoom:()=>{ go.textContent='Next: noise'; nx.textContent='Report'; },
+    pNoise:()=>{ go.textContent= noiseStats()?'Test again':'Start 30 s test'; nx.textContent='Next: echo'; },
+    pEcho:()=>{ go.textContent='Listen'; nx.textContent='Report'; },
+    pReport:()=>{ go.textContent='Print / PDF'; nx.textContent='Save audit'; }})[id]?.();
+}
+$('goBtn').addEventListener('click',()=>{
+  if(cur==='pRoom') return showPanel('pNoise');
+  if(cur==='pNoise') return micStart('noise');
+  if(cur==='pEcho') return micStart('echo');
+  if(cur==='pReport') return window.print();
+});
+$('stopBtn').addEventListener('click',()=>micStop());
+$('nextBtn').addEventListener('click',()=>{
+  if(cur==='pRoom') return showPanel('pReport');
+  if(cur==='pNoise') return showPanel('pEcho');
+  if(cur==='pEcho') return showPanel('pReport');
+  if(cur==='pReport') return $('svSave').click();
+});
+function showPanel(id){
+  if(MIC.on && id!==cur) micStop();
+  cur=id; document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id===id));
+  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.p===id)));
+  window.scrollTo(0,0); dockFor(id);
+  if(id==='pRoom') renderRoom(); if(id==='pNoise') renderNoise(); if(id==='pEcho') renderEcho(); if(id==='pReport') renderReport(); if(id==='pSaved') renderSaved();
+}
+document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>showPanel(b.dataset.p)));
+function loadRoomInputs(){ $('rmName').value=A.name||''; $('dL').value=A.L; $('dW').value=A.W; $('dH').value=A.H; document.querySelectorAll('#pRoom [data-type]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.type===A.type))); }
+function renderAll(){ renderRoom(); renderNoise(); renderEcho(); renderReport(); markDone(); }
+function paintTheme(){ document.querySelectorAll('.theme button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.theme===document.documentElement.dataset.palette))); const m=document.querySelector('meta[name="theme-color"]'); if(m) m.content=css('--shell'); }
+document.querySelectorAll('.theme button').forEach(b=>b.addEventListener('click',()=>{ document.documentElement.dataset.palette=b.dataset.theme; try{ localStorage.setItem('fieldkit.theme',b.dataset.theme); }catch(e){} for(const k in CSSV) delete CSSV[k]; paintTheme(); showPanel(cur); }));
+(function init(){
+  if(!window.isSecureContext) $('secure').classList.remove('hide');
+  wf3D=new View3D($('wf3dC'),300,waterfallScene);
+  paintTheme(); loadRoomInputs(); renderAll(); dockFor('pRoom');
+  let rz; addEventListener('resize',()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(cur==='pNoise') renderNoise(); if(cur==='pEcho') renderEcho(); },150); });
+})();
+</script>
+</body>
+</html>
