@@ -347,8 +347,8 @@ details.how ol,details.how ul{padding-left:20px;margin:0 0 8px}
       <div class="card">
         <h2>How steady is the hand?</h2>
         <p class="take" id="tkGauge"></p>
-        <div class="tscale" id="trScale"><div class="z"><div style="background:var(--r-good)"></div><div style="background:var(--r-fair)"></div><div style="background:var(--r-poor)"></div></div><div class="lab"><span>Steady</span><span>Normal</span><span>Shaky</span></div><span class="pin" id="trPin" style="left:0"></span></div>
-        <p class="cap" style="margin-top:8px">Shake in m/s² (3–20 Hz). Steady &lt; 0.04 · Normal 0.04–0.10 · Shaky &gt; 0.10: this app's guide for a phone held at arm's length. The dashed tick is your rested baseline, the comparison that matters most.</p>
+        <div class="tscale" id="trScale"><div class="z" id="trZ"><div style="background:var(--r-good)"></div><div style="background:var(--r-fair)"></div><div style="background:var(--r-poor)"></div></div><div class="lab" id="trZL"><span>Steady</span><span>Normal</span><span>Shaky</span></div><span class="pin" id="trPin" style="left:0"></span></div>
+        <p class="cap" style="margin-top:8px" id="trZCap"></p>
       </div>
       <div class="card">
         <h2>Which frequencies the shake is made of</h2>
@@ -919,7 +919,14 @@ function analyzeTremor(buf){
   return {N,fs,rms:Math.sqrt(band),peakHz:pk,peakAmp:Math.sqrt(Math.max(0,pkA)),freqs,amp,trace:{t:tt,y:tr},dur,px,py};
 }
 const TR={state:'idle', buf:null, res:null, t0:0, trail:[], ex:null, ey:null};
-const TZ={steady:0.04, normal:0.10, max:0.15};   // app guide for the steadiness zones (m/s², 3–20 Hz)
+// steadiness zones: relative to the rested baseline when one is saved (same 1.5× rule as the verdict),
+// otherwise a wide rough guide for a phone held at arm's length
+let TZ={steady:0.15, normal:0.40, max:0.60, rel:false, names:['Steady','Normal','Shaky']};
+function zonesFor(base){
+  TZ = base && base.tremor ? {steady:base.tremor*1.2, normal:base.tremor*1.5, max:base.tremor*2.5, rel:true, names:['Like rested','A bit shakier','Much shakier']}
+                           : {steady:0.15, normal:0.40, max:0.60, rel:false, names:['Steady','Normal','Shaky']};
+  return TZ;
+}
 const RT={state:'idle', trials:[], timer:null, t0:0, tGo:0, N:5};
 const FIT_KEY='roadsense.fit.v1';
 const getFitBase=()=>{ try{ return JSON.parse(localStorage.getItem(FIT_KEY)||'null'); }catch(e){ return null; } };
@@ -944,13 +951,14 @@ function finishTremor(){ TR.state='idle'; trReset(); const r=analyzeTremor(TR.bu
   TR.res=r; $('trBtn').textContent='Test again'; $('trStatus').textContent=`${r.N} readings over ${r.dur.toFixed(1)} s.`; renderTremor(); renderFit(); }
 function drawTarget(){
   // square-root radial scale: the steady and normal zones get room, a very shaky hand still fits
-  const c=$('trTarget'), size=Math.min(c.clientWidth||300,320), {ctx,w,h}=setupCanvas(c,size), cx=w/2, cy=h/2, R=Math.min(w,h)/2-16, ink=css('--ink'), base=getFitBase();
+  const base=getFitBase(); zonesFor(base);
+  const c=$('trTarget'), size=Math.min(c.clientWidth||300,320), {ctx,w,h}=setupCanvas(c,size), cx=w/2, cy=h/2, R=Math.min(w,h)/2-16, ink=css('--ink');
   const rad=v=>R*Math.sqrt(clamp(v,0,TZ.max)/TZ.max);
   const P=(x,y)=>{ const r=Math.hypot(x,y), k=r>0? rad(r)/r : 0; return [cx+x*k, cy-y*k]; };
   [[TZ.max,css('--r-poor')],[TZ.normal,css('--r-fair')],[TZ.steady,css('--r-good')]].forEach(([v,col])=>{ ctx.beginPath(); ctx.arc(cx,cy,rad(v),0,7); ctx.fillStyle=col; ctx.globalAlpha=.26; ctx.fill(); ctx.globalAlpha=1; ctx.lineWidth=2; ctx.strokeStyle=col; ctx.stroke(); });
   ctx.strokeStyle=css('--grid'); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(cx-R,cy); ctx.lineTo(cx+R,cy); ctx.moveTo(cx,cy-R); ctx.lineTo(cx,cy+R); ctx.stroke();
   ctx.font='800 12px '+css('--cond'); ctx.fillStyle=ink; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText('STEADY',cx,cy+rad(TZ.steady)*0.62); ctx.fillText('NORMAL',cx,cy+(rad(TZ.steady)+rad(TZ.normal))/2); ctx.fillText('SHAKY',cx,cy+(rad(TZ.normal)+R)/2);
+  ctx.fillText(TZ.names[0].toUpperCase(),cx,cy+rad(TZ.steady)*0.62); ctx.fillText(TZ.names[1].toUpperCase(),cx,cy+(rad(TZ.steady)+rad(TZ.normal))/2); ctx.fillText(TZ.names[2].toUpperCase(),cx,cy+(rad(TZ.normal)+R)/2);
   const tag=(r,ang,text)=>{ const x=cx+Math.cos(ang)*r, y=cy-Math.sin(ang)*r; ctx.font='800 12px '+css('--cond'); const tw=ctx.measureText(text).width+10, bx=clamp(x+(Math.cos(ang)>0?6:-tw-6),2,w-tw-2), by=clamp(y-(Math.sin(ang)>0?20:-4),2,h-20);
     ctx.strokeStyle=ink; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(bx+(Math.cos(ang)>0?0:tw),by+9); ctx.stroke(); ctx.fillStyle=css('--fill'); ctx.fillRect(bx,by,tw,18); ctx.fillStyle=css('--on-fill'); ctx.textAlign='left'; ctx.fillText(text,bx+5,by+9); };
   if(base && base.tremor){ ctx.save(); ctx.setLineDash([6,5]); ctx.strokeStyle=ink; ctx.lineWidth=2.2; ctx.beginPath(); ctx.arc(cx,cy,rad(base.tremor*1.41),0,7); ctx.stroke(); ctx.restore(); }
@@ -963,7 +971,7 @@ function drawTarget(){
   tag(rad(r.rms*1.41),Math.PI/4,'YOU NOW '+r.rms.toFixed(3));
   if(base && base.tremor) tag(rad(base.tremor*1.41),-3*Math.PI/4,'RESTED '+base.tremor.toFixed(3));
 }
-const tzone=v=> v<TZ.steady ? ['good','Steady'] : v<TZ.normal ? ['fair','Normal'] : ['poor','Shaky'];
+const tzone=v=> v<TZ.steady ? ['good',TZ.names[0]] : v<TZ.normal ? ['fair',TZ.names[1]] : ['poor',TZ.names[2]];
 function renderTremor(){
   const r=TR.res; if(!r) return; $('trOut').classList.remove('hide');
   setBand('bFit',{state:'done',label:'Hand tremor',num:r.rms.toFixed(3)});
@@ -971,10 +979,16 @@ function renderTremor(){
   const base=getFitBase(), inZone=r.peakHz>=8&&r.peakHz<=12, slow=r.peakHz>=4&&r.peakHz<7;
   $('tkSpec').textContent = `Main beat at ${r.peakHz.toFixed(1)} Hz: ${inZone?'inside the normal 8–12 Hz range.':slow?'slower than the normal 8–12 Hz range. Repeat the test; if it stays there, ask a doctor.':'outside the usual 8–12 Hz range. Repeat the test.'}${base&&base.tremor?` Shake is ${(r.rms/base.tremor).toFixed(1)}× your baseline.`:''}`;
   drawTarget();
-  const z=tzone(r.rms); $('trPin').style.left=(clamp(r.rms/TZ.max,0,1)*100)+'%';
+  zonesFor(base); const z=tzone(r.rms); $('trPin').style.left=(clamp(r.rms/TZ.max,0,1)*100)+'%';
+  const fr=[TZ.steady, TZ.normal-TZ.steady, TZ.max-TZ.normal].map(v=>v/TZ.max*100);
+  $('trZ').style.gridTemplateColumns=$('trZL').style.gridTemplateColumns=fr.map(v=>v.toFixed(1)+'fr').join(' ');
+  $('trZL').innerHTML=TZ.names.map(n=>`<span>${n}</span>`).join('');
+  $('trZCap').innerHTML = TZ.rel
+    ? `Zones come from your rested baseline (${base.tremor.toFixed(3)} m/s²): like rested up to 1.2×, a bit shakier up to 1.5×, much shakier beyond. The same 1.5× rule decides Fit to drive. The dashed tick is your baseline.`
+    : `Rough guide for a phone at arm's length: steady &lt; 0.15, normal 0.15–0.40, shaky &gt; 0.40 m/s² (3–20 Hz). Hands and phones differ, so <b>save a rested baseline</b>: the zones then come from you.`;
   const old=$('trScale').querySelector('.base'); if(old) old.remove();
   if(base&&base.tremor) $('trScale').insertAdjacentHTML('beforeend',`<span class="base" style="left:${(clamp(base.tremor/TZ.max,0,1)*100).toFixed(1)}%"></span>`);
-  $('tkGauge').textContent=`${z[1]}: ${r.rms.toFixed(3)} m/s² of shake.${base&&base.tremor?` Rested you were ${base.tremor.toFixed(3)} (${tzone(base.tremor)[1].toLowerCase()}), so this is ${(r.rms/base.tremor).toFixed(1)}× as much.`:' Save a rested baseline to compare.'}`;
+  $('tkGauge').textContent= TZ.rel ? `${z[1]}: ${r.rms.toFixed(3)} m/s², ${(r.rms/base.tremor).toFixed(1)}× your rested ${base.tremor.toFixed(3)}.` : `${z[1]} (rough guide): ${r.rms.toFixed(3)} m/s² of shake. Save a rested baseline for a personal comparison.`;
   const fmax=r.freqs[r.freqs.length-1]||25, keep=r.freqs.map((f,i)=>f>=2?i:-1).filter(i=>i>=0), fx=keep.map(i=>r.freqs[i]), fa=keep.map(i=>r.amp[i]), top=Math.max(...fa,...(base&&base.spec?base.spec.a:[0]))*1.3||0.01;
   chart($('trSpecC'),{h:190,x:[2,fmax],xt:[2,5,10,15,20,25].filter(v=>v<=fmax),y:[0,top],ml:48,ylab:'m/s²',xlab:'frequency (Hz)',xf:v=>v,yf:v=>v.toFixed(top<0.1?3:2),
     xb:[{x0:4,x1:7,fill:css('--over'),label:'4–7'},{x0:8,x1:Math.min(12,fmax),fill:css('--zone'),label:'NORMAL 8–12'}],
@@ -982,7 +996,7 @@ function renderTremor(){
     dots:[{x:r.peakHz,y:r.peakAmp,color:css('--alert'),ring:css('--ink'),r:6}], notes:[{x:r.peakHz,y:r.peakAmp,text:'main beat '+r.peakHz.toFixed(1)+' Hz'}],
     tip:v=>{ const i=nearestIdx(fx,v); return {x:fx[i],y:fa[i],lines:[`${fx[i].toFixed(1)} Hz`,`${fa[i].toFixed(4)} m/s²`]}; }});
   const lim=Math.max(0.05,...r.trace.y.map(Math.abs))*1.1;
-  $('tkTrace').textContent=`Typical shake ±${(r.rms*1.41).toFixed(3)} m/s²: ${r.rms<0.05?'a steady hand.':r.rms<0.12?'normal for an outstretched hand.':'a lot of shake for a phone held still.'}`;
+  $('tkTrace').textContent=`Typical shake ±${(r.rms*1.41).toFixed(3)} m/s²: ${tzone(r.rms)[1].toLowerCase()}${TZ.rel?'':' (rough guide)'}.`;
   chart($('trTraceC'),{h:150,x:[0,10],y:[-lim,lim],ml:48,ylab:'m/s²',xlab:'seconds',xf:v=>v+' s',yf:v=>v.toFixed(2),s:[{xs:r.trace.t,ys:r.trace.y,color:css('--ink'),width:1.5}]});
 }
 const pad=$('pad');
