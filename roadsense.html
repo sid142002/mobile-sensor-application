@@ -20,7 +20,7 @@
   --silver:#c9cdd2; --silver2:#dadde1; --band-ink:#14181f; --ghost:rgba(20,24,31,.13); --track:rgba(20,24,31,.12); --sheen:rgba(255,255,255,.8);
   --alert:#ff5a1f; --on-alert:#14181f; --pass:#16833a; --on-pass:#ffffff;
   --dock:#14181f; --on-dock:#ffffff; --dock-muted:#8d949e; --dock-off:#4b535f; --go-off:#59605e; --go-off-ink:#c9cdd2; --wait1:#2b3038; --wait2:#3a414b;
-  --over:rgba(255,90,31,.16); --zone:rgba(228,240,30,.5);
+  --over:rgba(255,90,31,.16); --zone:rgba(228,240,30,.5); --ev-brake:#d62839; --ev-start:#c99a00; --ev-turn:#6250d6;
   --r-good:#1f9d55; --r-fair:#e3b505; --r-poor:#f06a1d; --r-vpoor:#d62839; --r-slow:#8d949e;
   --b0:#eea064; --b1:#e6803f; --b2:#d9612a; --b3:#bf4520; --b4:#9a2e1a; --b5:#6e1b13;
   --cond:"Barlow Condensed","Arial Narrow",sans-serif;
@@ -33,7 +33,7 @@
   --band-ink:#0e1318; --ghost:rgba(14,19,24,.16); --track:rgba(14,19,24,.15); --sheen:rgba(255,255,255,.85);
   --alert:#ff6a2b; --on-alert:#0e1318; --pass:#33b35f; --on-pass:#0e1318;
   --dock:#080b0f; --on-dock:#e8ecf0; --dock-muted:#7d8995; --dock-off:#3b4756; --go-off:#2a333d; --go-off-ink:#7d8995; --wait1:#1e252e; --wait2:#2b343f;
-  --over:rgba(255,106,43,.2); --zone:rgba(228,240,30,.22);
+  --over:rgba(255,106,43,.2); --zone:rgba(228,240,30,.22); --ev-brake:#ff4757; --ev-start:#f0c419; --ev-turn:#9085e9;
   --r-good:#33b35f; --r-fair:#f0c419; --r-poor:#ff7a33; --r-vpoor:#ff4757; --r-slow:#7d8995;
   --b0:#f7c99c; --b1:#f3aa70; --b2:#ee8b4b; --b3:#e2692e; --b4:#cc5121; --b5:#ad3d1a;
 }
@@ -145,6 +145,19 @@ canvas{display:block;width:100%}
 .tscale .pin{position:absolute;top:-12px;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:12px solid var(--ink);transform:translateX(-9px);transition:left .25s ease-out}
 .tscale .base{position:absolute;top:-4px;bottom:22px;width:0;border-left:3px dashed var(--ink)}
 #trTarget{max-width:320px;margin:6px auto 0}
+.lost{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:8px 10px;margin:8px 0}
+.lost svg{width:20px;height:20px}
+.lost .nm{font:700 15px var(--sans)}
+.lost .nm small{display:block;font:500 13px var(--sans);color:var(--muted)}
+.lost .v{font:800 20px var(--cond);font-variant-numeric:tabular-nums}
+.lost .tr{grid-column:2/4;height:10px;background:var(--ground);border:1px solid var(--grid)}
+.lost .tr i{display:block;height:100%}
+.spdz{display:flex;gap:2px;height:22px;border:2px solid var(--line);margin:10px 0 6px}
+.spdz div{height:100%}
+.evleg{display:flex;flex-wrap:wrap;gap:6px 14px;font:600 13px var(--sans);color:var(--muted);margin-top:8px}
+.evleg span{display:inline-flex;align-items:center;gap:6px}
+.evleg svg{width:14px;height:14px}
+#dmap{height:280px;background:var(--ground)}
 .callout{background:var(--ground);border:2px solid var(--line);padding:10px 12px;margin-top:6px}
 .start{border:2px dashed var(--line);background:transparent}
 .start ol{margin:6px 0 0;padding-left:22px;font:600 16px/1.5 var(--sans)}
@@ -308,6 +321,11 @@ details.how ol,details.how ul{padding-left:20px;margin:0 0 8px}
   <div id="drvTrip">
   <div class="band" id="bDrv" data-state="idle" data-ghost="000"><div class="row"><span class="mark"></span><span class="lbl">Driving · ready</span></div><div class="val"><span class="num empty" data-g="000"></span><span class="unit">score<br>out of 100</span></div></div>
   <div class="meaning" id="mDrv">A passenger should hold the phone. The score counts harsh moves and speeding.</div>
+  <div class="card">
+    <h2>Driving score</h2>
+    <p class="take" id="tkGaugeD"></p>
+    <canvas id="dGauge" aria-label="Driving score dial from 0 to 100"></canvas>
+  </div>
   <div class="tiles"><div><b id="dKm">0.0</b><span>km driven</span></div><div><b id="dEv">0</b><span>harsh moves</span></div><div><b id="dSp">0</b><span>s speeding</span></div></div>
   <div class="card">
     <label class="field" for="limit">Speed limit on this road</label>
@@ -316,14 +334,25 @@ details.how ol,details.how ul{padding-left:20px;margin:0 0 8px}
   <div class="card">
     <h2>Speed over the trip</h2>
     <p class="take" id="tkSpd"></p>
-    <p class="cap">GPS speed (km/h) against time. Dashed: the limit; orange shading: over the limit; dots: harsh moves.</p>
+    <p class="cap">GPS speed (km/h) against time. Dashed: the limit; orange shading: over the limit.</p>
     <canvas id="dSpdC" aria-label="Speed against time"></canvas>
+    <div class="evleg" id="evLeg"></div>
+    <h2 style="margin-top:14px">Time at each speed</h2>
+    <div class="spdz" id="spdZ" aria-label="Share of trip time under, near and well over the limit"></div>
+    <div class="evleg" id="spdZL"></div>
     <p class="hint">Slide a finger across the chart to read the speed at any moment.</p>
   </div>
   <div class="card">
-    <h2>How the score is made</h2>
-    <table><thead><tr><th>Event</th><th class="r">Count</th><th class="r">Each</th><th class="r">Lost</th></tr></thead><tbody id="dPts"></tbody></table>
+    <h2>Where the points went</h2>
+    <p class="take" id="tkPts"></p>
+    <div id="dPts"></div>
     <p class="cap" style="margin-top:6px">Score = 100 − points lost. A harsh move is a push over 2.5 m/s² (about 0.25 g) for 0.3 s or more.</p>
+  </div>
+  <div class="card">
+    <h2>Where the harsh moves happened</h2>
+    <p class="cap">Your route, with each harsh move marked where it happened. Tap a marker for details.</p>
+    <div class="mapwrap"><div id="dmap"></div><div class="maploading" id="dmapLoad"><span>Map appears after the first GPS fix</span></div></div>
+    <div class="evleg" id="evLeg2"></div>
   </div>
   <div class="card">
     <h2>Harsh moves</h2>
@@ -682,24 +711,65 @@ function renderComfort(t,full){
     return `<tr><td><span class="sw" style="background:${bandColor(i)}"></span>${b.name}</td><td class="r">${b.range}</td><td class="r">${fmtClock(T.com.bandMs[i])}</td><td class="r">${tot?Math.round(sh*100)+'%':'–'}</td></tr>`; }).join('');
 }
 // ---------- driving view ----------
+const EVT={'Hard brake':{k:'brake',shape:'down',word:'Hard brake'},'Hard start':{k:'start',shape:'up',word:'Hard start'},'Sharp turn':{k:'turn',shape:'diamond',word:'Sharp turn'}};
+const evInfo=type=>EVT[type]||{k:'slow',shape:'dot',word:type||'Harsh move'};
+const evColor=type=>{ const k=evInfo(type).k; return k==='slow'?css('--r-slow'):css('--ev-'+k); };
+const shapeSVG=(shape,col)=>`<svg viewBox="0 0 16 16" aria-hidden="true">${shape==='down'?`<path d="M2 3h12L8 14z"`:shape==='up'?`<path d="M2 13h12L8 2z"`:shape==='diamond'?`<path d="M8 1l7 7-7 7-7-7z"`:`<circle cx="8" cy="8" r="6"`} fill="${col}" stroke="${css('--ink')}" stroke-width="1.6"/></svg>`;
+function evLegendHTML(){ return Object.keys(EVT).map(t=>`<span>${shapeSVG(EVT[t].shape,evColor(t))}${EVT[t].word}</span>`).join(''); }
+function drawDriveGauge(score,ok){
+  const c=$('dGauge'), W=c.clientWidth||320, Hh=Math.min(220,Math.round(W*0.58)), {ctx,w,h}=setupCanvas(c,Hh), cx=w/2, cy=h-30, R=Math.min(w/2-14,h-44), ink=css('--ink');
+  const ang=v=>Math.PI*(1+v/100);   // 0 → left, 100 → right
+  [[0,60,css('--alert'),'HARSH'],[60,85,css('--r-fair'),'IMPROVE'],[85,100,css('--pass'),'SMOOTH']].forEach(([a,b,col,lab])=>{
+    ctx.beginPath(); ctx.arc(cx,cy,R,ang(a)+0.01,ang(b)-0.01); ctx.lineWidth=22; ctx.strokeStyle=col; ctx.stroke();
+    const m=ang((a+b)/2); ctx.font='800 12px '+css('--cond'); ctx.fillStyle=css('--muted'); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(lab,cx+Math.cos(m)*(R-32),cy+Math.sin(m)*(R-32)); });
+  ctx.font='700 12px '+css('--sans'); ctx.fillStyle=css('--muted'); [0,60,85,100].forEach(v=>{ const a=ang(v); ctx.textAlign=v===0?'right':v===100?'left':'center'; ctx.fillText(v,cx+Math.cos(a)*(R+16),cy+Math.sin(a)*(R+16)); });
+  if(!ok){ ctx.font='800 15px '+css('--cond'); ctx.textAlign='center'; ctx.fillText('START A TRIP',cx,cy-12); return; }
+  const a=ang(clamp(score,0,100)); ctx.strokeStyle=ink; ctx.lineWidth=5; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(a)*(R-14),cy+Math.sin(a)*(R-14)); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx,cy,9,0,7); ctx.fillStyle=ink; ctx.fill();
+  ctx.font='800 44px '+css('--cond'); ctx.fillStyle=ink; ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText(score,cx,cy-14);
+}
+let dmap=null, dlayer=null;
+function ensureDMap(){ if(dmap||!window.L) return; dmap=L.map('dmap',{zoomControl:true}).setView([20.6,78.9],4); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(dmap).on('load',()=>$('dmapLoad').classList.add('gone')); dlayer=L.layerGroup().addTo(dmap); }
+function drawDMap(fit){
+  ensureDMap(); if(!dlayer||!T) return; dlayer.clearLayers();
+  const pts=T.segs.flatMap(g=>g.pts).concat(LV.cur&&LV.cur.pts? LV.cur.pts : []);
+  if(pts.length>1) L.polyline(pts,{color:css('--casing'),weight:7,opacity:.8}).addTo(dlayer), L.polyline(pts,{color:css('--r-slow'),weight:4}).addTo(dlayer);
+  T.events.filter(e=>e.lat!=null).forEach(e=>{ const inf=evInfo(e.type);
+    L.marker([e.lat,e.lon],{icon:L.divIcon({className:'',html:`<div style="width:22px;height:22px">${shapeSVG(inf.shape,evColor(e.type)).replace('<svg ','<svg width="22" height="22" ')}</div>`,iconSize:[22,22],iconAnchor:[11,11]})})
+      .bindPopup(`<b>${inf.word}</b><br>${(e.peak/9.81).toFixed(2)} g at ${(e.at/1000).toFixed(2)} km${e.spd!=null?' · '+Math.round(e.spd)+' km/h':''}`).addTo(dlayer); });
+  if(pts.length>1 && (fit||!LV.on)){ $('dmapLoad').classList.add('gone'); dmap.fitBounds(pts,{padding:[24,24]}); } else if(pts.length){ $('dmapLoad').classList.add('gone'); dmap.panTo(pts[pts.length-1]); if(dmap.getZoom()<14) dmap.setView(pts[pts.length-1],16); }
+}
 function renderDrive(t,full){
   const ds=driveSummary(T), ok=t>3000;
   setBand('bDrv',{state: LV.on?'rec':'done', label: LV.on?`Driving · live · limit ${T.limit} km/h`:`Driving · whole trip`, num: ok?String(ds.score):'–'});
   if(ok){ const k=driveVerdict(ds.score); $('mDrv').innerHTML=`${verdict(k[0],k[1])} <span style="display:block;margin-top:6px">${T.events.length} harsh move${T.events.length===1?'':'s'} and ${Math.round(T.drv.speedMs/1000)} s over ${T.limit} km/h.</span>`; }
   $('dKm').textContent=(T.dist/1000).toFixed(1); $('dEv').textContent=T.events.length; $('dSp').textContent=Math.round(T.drv.speedMs/1000);
   if(!full) return;
-  $('dPts').innerHTML=ds.rows.map(r=>`<tr><td>${r[0]}</td><td class="r">${r[1]}</td><td class="r">${r[2]}</td><td class="r">${r[3]?'−'+r[3]:'0'}</td></tr>`).join('')+`<tr><td><b>Score</b></td><td></td><td></td><td class="r"><b>${ds.score}</b></td></tr>`;
+  drawDriveGauge(ds.score,ok);
+  const lost=ds.rows.filter(r=>r[3]>0).sort((a,b)=>b[3]-a[3]), totLost=100-ds.score, kv=driveVerdict(ds.score);
+  $('tkGaugeD').textContent = !ok ? '' : totLost===0 ? `${ds.score}: ${kv[1].toLowerCase()}. No points lost.` : `${ds.score}: ${kv[1].toLowerCase()}. You lost ${totLost} point${totLost===1?'':'s'}: ${lost.map(r=>`${r[3]} for ${r[0]==='Speeding (per 10 s)'?'speeding':r[1]+' '+r[0].toLowerCase()+(r[1]>1?'s':'')}`).join(', ')}.`;
+  $('tkPts').textContent = !ok ? '' : lost.length ? `Biggest loss: ${lost[0][0]==='Speeding (per 10 s)'?'speeding':lost[0][0].toLowerCase()+'s'} (−${lost[0][3]}).` : 'Nothing lost: no harsh moves, no speeding.';
+  const mxL=Math.max(1,...ds.rows.map(r=>r[3]));
+  $('dPts').innerHTML=ds.rows.map(r=>{ const sp=r[0]==='Speeding (per 10 s)', col= sp?css('--alert'):evColor(r[0]), shape= sp?'dot':evInfo(r[0]).shape;
+    return `<div class="lost">${shapeSVG(shape,col)}<span class="nm">${sp?'Speeding':r[0]}<small>${r[1]} × ${r[2]} point${r[2]===1?'':'s'}${sp?' per 10 s over':''}</small></span><span class="v">${r[3]?'−'+r[3]:'0'}</span><span class="tr"><i style="width:${(r[3]/mxL*100).toFixed(1)}%;background:${col}"></i></span></div>`; }).join('')
+    +`<div class="lost" style="border-top:2px solid var(--line);padding-top:8px"><span></span><span class="nm">Score</span><span class="v">${ds.score}</span></div>`;
+  $('evLeg').innerHTML=evLegendHTML(); $('evLeg2').innerHTML=evLegendHTML();
   const tr=T.drv.trace, tmax=Math.max(1,Math.ceil(t/60000)), ymax=Math.max(T.limit*1.3,...tr.map(p=>p[1]*1.1),20);
   const top=tr.length? Math.max(...tr.map(p=>p[1])) : 0, spS=Math.round(T.drv.speedMs/1000);
   $('tkSpd').textContent = !tr.length ? '' : `Top speed ${Math.round(top)} km/h. ${spS? spS+' s over the '+T.limit+' km/h limit.' : 'Never over the '+T.limit+' km/h limit.'}`;
   const shortT=t=>({'Hard brake':'brake','Hard start':'start','Sharp turn':'turn'})[t]||'push';
   chart($('dSpdC'),{h:180,x:[0,tmax],y:[0,ymax],ml:40,ylab:'km/h',xlab:'trip time',xf:v=>v===0?'0':v<1?Math.round(v*60)+' s':v+' min',yf:v=>v.toFixed(0),empty:'Start a trip',
     above:{y:T.limit,fill:css('--over')}, hl:[{y:T.limit,color:css('--ink'),dash:[6,4],width:2}], s:[{xs:tr.map(p=>p[0]),ys:tr.map(p=>p[1]),color:css('--ink'),width:2}],
-    dots:T.events.filter(e=>e.spd!=null).map(e=>({x:e.t/60000,y:e.spd,color:css('--alert'),ring:css('--ink'),r:6})), labels:[{x:tmax,y:T.limit,text:`limit ${T.limit}`,align:'right',dx:-4}],
+    dots:T.events.filter(e=>e.spd!=null).map(e=>({x:e.t/60000,y:e.spd,color:evColor(e.type),ring:css('--ink'),r:8,shape:evInfo(e.type).shape})), labels:[{x:tmax,y:T.limit,text:`limit ${T.limit}`,align:'right',dx:-4}],
     notes:T.events.filter(e=>e.spd!=null).slice(-3).map(e=>({x:e.t/60000,y:e.spd,text:shortT(e.type)})),
     tip: tr.length? v=>{ const i=nearestIdx(tr.map(p=>p[0]),v); return {x:tr[i][0],y:tr[i][1],lines:[`at ${fmtClock(tr[i][0]*60000)}`,`${Math.round(tr[i][1])} km/h${tr[i][1]>T.limit?' · over the limit':''}`]}; } : null});
+  // time at speed: under the limit, up to 10 over, more than 10 over
+  const zc=[0,0,0]; tr.forEach(p=>{ zc[p[1]<=T.limit?0:p[1]<=T.limit+10?1:2]++; }); const zn=tr.length||1, zcol=[css('--pass'),css('--r-fair'),css('--alert')], zlab=[`under ${T.limit}`,`up to ${T.limit+10}`,`over ${T.limit+10} km/h`];
+  $('spdZ').innerHTML=zc.map((c2,i)=>c2?`<div style="width:${(c2/zn*100).toFixed(1)}%;background:${zcol[i]}" title="${zlab[i]}"></div>`:'').join('');
+  $('spdZL').innerHTML=zc.map((c2,i)=>`<span><i style="display:inline-block;width:14px;height:10px;background:${zcol[i]}"></i>${zlab[i]}: <b style="color:var(--ink)">${Math.round(c2/zn*100)}%</b></span>`).join('');
+  if(tab==='pDrive') drawDMap(false);
   const ev=T.events.slice().reverse().slice(0,12);
-  $('dEvT').innerHTML= ev.length ? ev.map(e=>`<tr><td>${e.n}</td><td>${(e.at/1000).toFixed(2)} km</td><td>${e.type||'…'}</td><td class="r">${(e.peak/9.81).toFixed(2)} g</td><td class="r">${e.spd!=null?Math.round(e.spd)+' km/h':'–'}</td></tr>`).join('') : '<tr><td colspan="5" class="cap">None yet.</td></tr>';
+  $('dEvT').innerHTML= ev.length ? ev.map(e=>`<tr><td>${e.n}</td><td>${(e.at/1000).toFixed(2)} km</td><td><span style="display:inline-flex;align-items:center;gap:6px">${shapeSVG(evInfo(e.type).shape,evColor(e.type)).replace('<svg ','<svg width="14" height="14" ')}${e.type||'…'}</span></td><td class="r">${(e.peak/9.81).toFixed(2)} g</td><td class="r">${e.spd!=null?Math.round(e.spd)+' km/h':'–'}</td></tr>`).join('') : '<tr><td colspan="5" class="cap">None yet.</td></tr>';
 }
 $('limit').addEventListener('input',()=>{ const v=+$('limit').value; if(v>0 && T && LV.on) T.limit=v; if(T) renderDrive(LV.on?performance.now()-LV.t0:T.dur*1000,true); });
 
@@ -730,7 +800,12 @@ function chart(c,o){
   (o.vl||[]).forEach(l=>{ ctx.save(); ctx.setLineDash(l.dash||[]); ctx.strokeStyle=l.color; ctx.lineWidth=l.width||2; ctx.beginPath(); ctx.moveTo(X(l.x),m.t); ctx.lineTo(X(l.x),m.t+ph); ctx.stroke(); ctx.restore(); });
   let data=(o.bars||[]).length>0;
   (o.s||[]).forEach(s=>{ if(s.xs.length>1) data=true; ctx.save(); ctx.setLineDash(s.dash||[]); ctx.strokeStyle=s.color; ctx.lineWidth=s.width||2; ctx.lineJoin='round'; ctx.beginPath(); s.xs.forEach((x,i)=> i?ctx.lineTo(X(x),Y(s.ys[i])):ctx.moveTo(X(x),Y(s.ys[i]))); ctx.stroke(); ctx.restore(); });
-  (o.dots||[]).forEach(d=>{ data=true; ctx.beginPath(); ctx.arc(X(d.x),Y(d.y),d.r||5,0,7); ctx.fillStyle=d.color; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle=d.ring||css('--card'); ctx.stroke(); });
+  (o.dots||[]).forEach(d=>{ data=true; const x=X(d.x), y=Y(d.y), r=d.r||5; ctx.beginPath();
+    if(d.shape==='down'){ ctx.moveTo(x-r,y-r*0.8); ctx.lineTo(x+r,y-r*0.8); ctx.lineTo(x,y+r); ctx.closePath(); }
+    else if(d.shape==='up'){ ctx.moveTo(x-r,y+r*0.8); ctx.lineTo(x+r,y+r*0.8); ctx.lineTo(x,y-r); ctx.closePath(); }
+    else if(d.shape==='diamond'){ ctx.moveTo(x,y-r); ctx.lineTo(x+r,y); ctx.lineTo(x,y+r); ctx.lineTo(x-r,y); ctx.closePath(); }
+    else ctx.arc(x,y,r,0,7);
+    ctx.fillStyle=d.color; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle=d.ring||css('--card'); ctx.stroke(); });
   ctx.restore();
   (o.yb||[]).forEach(b=>{ if(!b.label) return; const y0=clamp(Y(b.y1),m.t,m.t+ph), y1=clamp(Y(b.y0),m.t,m.t+ph); if(y1-y0<15) return;
     ctx.font='800 11.5px '+css('--cond'); const t=b.label.toUpperCase(), tw=ctx.measureText(t).width; ctx.fillStyle=css('--card'); ctx.globalAlpha=.85; ctx.fillRect(w-m.r-tw-8,(y0+y1)/2-8,tw+6,16); ctx.globalAlpha=1;
@@ -1047,7 +1122,7 @@ function showPanel(id,keep){
   if(keep!==true) window.scrollTo(0,0);
   if(id==='pRoad'){ if(map) setTimeout(()=>map.invalidateSize(),60); if(T) renderAll(true); else { drawJolt(); drawProfile(); } road3D.draw(); }
   if(id==='pComfort'){ if(T) renderAll(true); else { drawGG(); emptyCharts(); } }
-  if(id==='pDrive'){ if(T) renderAll(true); else emptyCharts(); }
+  if(id==='pDrive'){ if(T){ renderAll(true); setTimeout(()=>{ if(dmap) dmap.invalidateSize(); drawDMap(true); },80); } else { emptyCharts(); drawDriveGauge(0,false); } }
   if(id==='pReport') renderReport(); if(id==='pSaved') renderSaved();
 }
 function emptyCharts(){ chart($('cmTripC'),{h:170,x:[0,60],y:[0,1.2],empty:'Start a trip'}); chart($('dSpdC'),{h:160,x:[0,1],y:[0,60],empty:'Start a trip'}); drawGG(); }
