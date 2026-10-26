@@ -404,8 +404,15 @@ details.how ol,details.how ul{padding-left:20px;margin:0 0 8px}
       <div class="card">
         <h2>Your 5 tries</h2>
         <p class="take" id="tkRt"></p>
-        <p class="cap">One dot per try (ms). Solid line: your median now. Dashed: your rested baseline.</p>
-        <canvas id="rtC" aria-label="Reaction times"></canvas>
+        <p class="cap">One bar per try (ms), coloured by speed band. Solid line: your median now. Dashed: your rested baseline. Shorter is better.</p>
+        <canvas id="rtC" aria-label="Reaction time of each try"></canvas>
+        <p class="hint">Slide a finger across the chart to read any try.</p>
+      </div>
+      <div class="card">
+        <h2>Distance before you react</h2>
+        <p class="take" id="tkRtD"></p>
+        <div id="rtDist"></div>
+        <p class="cap" style="margin-top:6px">While you react, the car keeps going at full speed and braking hasn't started. Distance = speed × reaction time. One car is about 4 m long.</p>
       </div>
     </div>
     <h2 class="step">3 · Fit to drive?</h2>
@@ -1003,6 +1010,9 @@ function zonesFor(base){
   return TZ;
 }
 const RT={state:'idle', trials:[], timer:null, t0:0, tGo:0, N:5};
+// rough bands for a phone tap test (includes screen and touch delay); the baseline gives the personal comparison
+const RT_BANDS=[{max:250,name:'Fast',k:'good'},{max:350,name:'Typical',k:'fair'},{max:500,name:'Slow',k:'poor'},{max:Infinity,name:'Very slow',k:'vpoor'}];
+const rtBand=v=>RT_BANDS.find(b=>v<b.max);
 const FIT_KEY='roadsense.fit.v1';
 const getFitBase=()=>{ try{ return JSON.parse(localStorage.getItem(FIT_KEY)||'null'); }catch(e){ return null; } };
 document.querySelectorAll('.mode [data-dm]').forEach(b=>b.addEventListener('click',()=>{ const fit=b.dataset.dm==='fit';
@@ -1034,16 +1044,18 @@ function drawTarget(){
   ctx.strokeStyle=css('--grid'); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(cx-R,cy); ctx.lineTo(cx+R,cy); ctx.moveTo(cx,cy-R); ctx.lineTo(cx,cy+R); ctx.stroke();
   ctx.font='800 12px '+css('--cond'); ctx.fillStyle=ink; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(TZ.names[0].toUpperCase(),cx,cy+rad(TZ.steady)*0.62); ctx.fillText(TZ.names[1].toUpperCase(),cx,cy+(rad(TZ.steady)+rad(TZ.normal))/2); ctx.fillText(TZ.names[2].toUpperCase(),cx,cy+(rad(TZ.normal)+R)/2);
-  const tag=(r,ang,text)=>{ const x=cx+Math.cos(ang)*r, y=cy-Math.sin(ang)*r; ctx.font='800 12px '+css('--cond'); const tw=ctx.measureText(text).width+10, bx=clamp(x+(Math.cos(ang)>0?6:-tw-6),2,w-tw-2), by=clamp(y-(Math.sin(ang)>0?20:-4),2,h-20);
-    ctx.strokeStyle=ink; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(bx+(Math.cos(ang)>0?0:tw),by+9); ctx.stroke(); ctx.fillStyle=css('--fill'); ctx.fillRect(bx,by,tw,18); ctx.fillStyle=css('--on-fill'); ctx.textAlign='left'; ctx.fillText(text,bx+5,by+9); };
+  const tag=(r,ang,text,bg,fg)=>{ const x=cx+Math.cos(ang)*r, y=cy-Math.sin(ang)*r; ctx.font='800 12px '+css('--cond'); const tw=ctx.measureText(text).width+10, bx=clamp(x+(Math.cos(ang)>0?6:-tw-6),2,w-tw-2), by=clamp(y-(Math.sin(ang)>0?20:-4),2,h-20);
+    ctx.strokeStyle=ink; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(bx+(Math.cos(ang)>0?0:tw),by+9); ctx.stroke(); ctx.fillStyle=bg||css('--fill'); ctx.fillRect(bx,by,tw,18); if(bg){ ctx.strokeRect(bx,by,tw,18); } ctx.fillStyle=fg||css('--on-fill'); ctx.textAlign='left'; ctx.fillText(text,bx+5,by+9); };
   if(base && base.tremor){ ctx.save(); ctx.setLineDash([6,5]); ctx.strokeStyle=ink; ctx.lineWidth=2.2; ctx.beginPath(); ctx.arc(cx,cy,rad(base.tremor*1.41),0,7); ctx.stroke(); ctx.restore(); }
   if(TR.state==='rec'){ const tr=TR.trail; tr.forEach(([x,y],i)=>{ const [a,b]=P(x,y); ctx.globalAlpha=0.15+0.85*i/tr.length; ctx.beginPath(); ctx.arc(a,b,2.8,0,7); ctx.fillStyle=ink; ctx.fill(); }); ctx.globalAlpha=1;
     if(tr.length){ const [a,b]=P(...tr[tr.length-1]); ctx.beginPath(); ctx.arc(a,b,10,0,7); ctx.fillStyle=css('--hv'); ctx.fill(); ctx.lineWidth=3; ctx.strokeStyle=ink; ctx.stroke(); } return; }
   const r=TR.res;
   if(!r){ ctx.fillStyle=css('--muted'); ctx.font='800 13px '+css('--cond'); ctx.textAlign='center'; ctx.fillText("YOUR HAND'S WOBBLE SHOWS HERE",cx,cy-R*0.86); return; }
   for(let i=0;i<r.px.length;i+=2){ const [a,b]=P(r.px[i],r.py[i]); ctx.globalAlpha=.5; ctx.beginPath(); ctx.arc(a,b,2.2,0,7); ctx.fillStyle=ink; ctx.fill(); } ctx.globalAlpha=1;
-  ctx.lineWidth=3.5; ctx.strokeStyle=ink; ctx.beginPath(); ctx.arc(cx,cy,rad(r.rms*1.41),0,7); ctx.stroke();
-  tag(rad(r.rms*1.41),Math.PI/4,'YOU NOW '+r.rms.toFixed(3));
+  // "you now" ring in the colour of its zone, with an ink casing so it stands out on the matching fill
+  const z=tzone(r.rms), zc=rateColor(z[0]);
+  ctx.beginPath(); ctx.arc(cx,cy,rad(r.rms*1.41),0,7); ctx.lineWidth=8; ctx.strokeStyle=ink; ctx.stroke(); ctx.lineWidth=4.5; ctx.strokeStyle=zc; ctx.stroke();
+  tag(rad(r.rms*1.41),Math.PI/4,`YOU NOW ${r.rms.toFixed(3)} · ${z[1].toUpperCase()}`,zc,'#0e1318');
   if(base && base.tremor) tag(rad(base.tremor*1.41),-3*Math.PI/4,'RESTED '+base.tremor.toFixed(3));
 }
 const tzone=v=> v<TZ.steady ? ['good',TZ.names[0]] : v<TZ.normal ? ['fair',TZ.names[1]] : ['poor',TZ.names[2]];
@@ -1090,11 +1102,20 @@ pad.addEventListener('pointerdown',e=>{ e.preventDefault(); let ts=e.timeStamp; 
 pad.addEventListener('contextmenu',e=>e.preventDefault());
 function renderRT(){
   const t=RT.trials; if(!t.length) return; $('rtOut').classList.remove('hide');
-  const md=median(t), base=getFitBase(), xmax=Math.max(500,...t,base&&base.rt||0)*1.1, spread=Math.max(...t)-Math.min(...t);
+  const md=median(t), base=getFitBase(), spread=Math.max(...t)-Math.min(...t);
   $('rMed').textContent=Math.round(md); $('rBest').textContent=Math.round(Math.min(...t)); $('rSpread').textContent=Math.round(spread);
-  $('tkRt').textContent=`Median ${Math.round(md)} ms over ${t.length} tr${t.length===1?'y':'ies'}${t.length>1?`, spread ${Math.round(spread)} ms${spread>150?' (inconsistent; a sign of tiredness)':''}`:''}.${base&&base.rt?` ${md-base.rt>=0?Math.round(md-base.rt)+' ms slower':Math.round(base.rt-md)+' ms faster'} than your baseline.`:''}`;
-  const vl=[{x:md,color:css('--ink'),width:2.5}]; if(base&&base.rt) vl.push({x:base.rt,color:css('--muted'),width:2,dash:[5,4]});
-  chart($('rtC'),{h:120,x:[0,xmax],y:[0,1],yt:[],ml:12,xlab:'milliseconds',xf:v=>v+' ms',vl,dots:t.map((v,i)=>({x:v,y:0.25+0.5*((i%3)/2),color:css('--hv'),ring:css('--ink'),r:7})),notes:[{x:md,y:0.92,text:'median '+Math.round(md)}]});
+  $('tkRt').textContent=`${rtBand(md).name}: median ${Math.round(md)} ms over ${t.length} tr${t.length===1?'y':'ies'}${t.length>1?`, spread ${Math.round(spread)} ms${spread>150?' (inconsistent; a sign of tiredness)':''}`:''}.${base&&base.rt?` ${md-base.rt>=0?Math.round(md-base.rt)+' ms slower':Math.round(base.rt-md)+' ms faster'} than your baseline.`:''}`;
+  const ymax=Math.max(600,...t,base&&base.rt||0)*1.12, hl=[{y:md,color:css('--ink'),width:2.5}]; if(base&&base.rt) hl.push({y:base.rt,color:css('--muted'),width:2,dash:[5,4]});
+  chart($('rtC'),{h:210,x:[0.4,RT.N+1.2],xt:Array.from({length:RT.N},(_,i)=>i+1),y:[0,ymax],ml:44,ylab:'ms',xlab:'try',xf:v=>'#'+v,yf:v=>v.toFixed(0),
+    yb:RT_BANDS.map((b,i)=>({y0:i?RT_BANDS[i-1].max:0,y1:Math.min(b.max,ymax),fill:rateColor(b.k)+'30',label:b.name})),
+    bars:t.map((v,i)=>({x0:i+0.62,x1:i+1.38,y:v,color:rateColor(rtBand(v).k),hi:true})), hl,
+    labels:t.map((v,i)=>({x:i+1,y:v,text:String(Math.round(v)),align:'center'})),
+    tip:v=>{ const i=clamp(Math.round(v)-1,0,t.length-1); return {x:i+1,y:t[i],lines:[`Try ${i+1}`,`${Math.round(t[i])} ms · ${rtBand(t[i]).name}`]}; }});
+  // reaction distance: how far the car travels before braking even starts
+  const sp=[30,50,80], lim=+$('limit').value; if(lim>0 && !sp.includes(lim)) sp.push(lim); sp.sort((a,b)=>a-b);
+  const dist=v=>v/3.6*md/1000, dmax=dist(sp[sp.length-1])*1.1, d50=dist(50);
+  $('tkRtD').textContent=`At 50 km/h the car moves ${d50.toFixed(1)} m (${(d50/4).toFixed(1)} car lengths) before your foot moves.${base&&base.rt?` That's ${Math.abs(d50-50/3.6*base.rt/1000).toFixed(1)} m ${md>=base.rt?'more':'less'} than when rested.`:''}`;
+  $('rtDist').innerHTML=sp.map(v=>{ const d=dist(v); return `<div class="bar"><span class="t">${v} km/h</span><span class="track"><span class="f" style="width:${(d/dmax*72).toFixed(1)}%;background:${rateColor(rtBand(md).k)}"></span><span>${d.toFixed(1)} m</span></span></div>`; }).join('');
 }
 function fitNow(){ const r=TR.res; let spec=null; if(r){ const f=[],a=[]; r.freqs.forEach((x,i)=>{ if(x>=2 && i%2===0){ f.push(+x.toFixed(2)); a.push(+r.amp[i].toFixed(5)); } }); spec={f,a}; }
   return {tremor:r?r.rms:null, spec, rt:RT.state==='done'&&RT.trials.length?median(RT.trials):null, at:new Date().toISOString()}; }
